@@ -36,7 +36,10 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3]
-        }
+        },
+        // Disable built-in link/underline to avoid duplicate extension names; we add configured versions below
+        link: false,
+        underline: false
       }),
       Image.configure({
         inline: true,
