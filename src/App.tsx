@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { PlusIcon, MagnifyingGlassIcon, TrashIcon, ArrowCounterClockwiseIcon, NotePencilIcon, ListIcon, CheckCircleIcon, MoonIcon, SunIcon } from '@phosphor-icons/react';
+import { PlusIcon, MagnifyingGlassIcon, TrashIcon, ArrowCounterClockwiseIcon, NotePencilIcon, ListIcon, CheckCircleIcon, MoonIcon, SunIcon, ShareNetwork } from '@phosphor-icons/react';
 import { NoteCard } from '@/components/NoteCard';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { AttachmentManager } from '@/components/AttachmentManager';
@@ -311,6 +311,15 @@ function App() {
             </Tabs>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/workflows')}
+              className="hidden sm:inline-flex"
+            >
+              <ShareNetwork size={18} className="mr-1" />
+              Workflows
+            </Button>
             <Button
               variant="ghost"
               size="icon"
