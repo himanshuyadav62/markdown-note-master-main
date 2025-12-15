@@ -5,7 +5,7 @@ import { PaperclipIcon, XIcon, FileIcon, FileTextIcon, FilePdfIcon, FileArchiveI
 import { v4 as uuidv4 } from 'uuid';
 import { Attachment } from '@/lib/types';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useState, useRef, DragEvent } from 'react';
 
 interface AttachmentManagerProps {
@@ -267,6 +267,9 @@ export function AttachmentManager({ attachments, onAdd, onRemove }: AttachmentMa
                 Download
               </Button>
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Attachment preview. Use the Download button to save the file.
+            </DialogDescription>
           </DialogHeader>
           {previewAttachment?.type.startsWith('image/') && (
             <div className="flex items-center justify-center p-4">
