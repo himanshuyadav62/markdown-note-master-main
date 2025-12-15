@@ -78,60 +78,60 @@ alter table todo_note_links enable row level security;
 -- RLS Policies for notes
 create policy "Users can view their own notes"
   on notes for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can create notes"
   on notes for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their own notes"
   on notes for update
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own notes"
   on notes for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- RLS Policies for todos
 create policy "Users can view their own todos"
   on todos for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can create todos"
   on todos for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their own todos"
   on todos for update
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own todos"
   on todos for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- RLS Policies for todo_groups
 create policy "Users can view their own todo groups"
   on todo_groups for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can create todo groups"
   on todo_groups for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their own todo groups"
   on todo_groups for update
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own todo groups"
   on todo_groups for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- RLS Policies for attachments
 create policy "Users can view attachments in their notes"
   on attachments for select
   using (
     exists (
-      select 1 from notes where notes.id = attachments.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = attachments.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -139,7 +139,7 @@ create policy "Users can create attachments in their notes"
   on attachments for insert
   with check (
     exists (
-      select 1 from notes where notes.id = attachments.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = attachments.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -147,7 +147,7 @@ create policy "Users can delete attachments in their notes"
   on attachments for delete
   using (
     exists (
-      select 1 from notes where notes.id = attachments.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = attachments.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -156,7 +156,7 @@ create policy "Users can view note links in their notes"
   on note_links for select
   using (
     exists (
-      select 1 from notes where notes.id = note_links.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = note_links.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -164,7 +164,7 @@ create policy "Users can create note links in their notes"
   on note_links for insert
   with check (
     exists (
-      select 1 from notes where notes.id = note_links.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = note_links.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -172,7 +172,7 @@ create policy "Users can delete note links in their notes"
   on note_links for delete
   using (
     exists (
-      select 1 from notes where notes.id = note_links.note_id and notes.user_id = auth.uid()
+      select 1 from notes where notes.id = note_links.note_id and notes.user_id = (select auth.uid())
     )
   );
 
@@ -181,7 +181,7 @@ create policy "Users can view todo note links in their todos"
   on todo_note_links for select
   using (
     exists (
-      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = auth.uid()
+      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = (select auth.uid())
     )
   );
 
@@ -189,7 +189,7 @@ create policy "Users can create todo note links in their todos"
   on todo_note_links for insert
   with check (
     exists (
-      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = auth.uid()
+      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = (select auth.uid())
     )
   );
 
@@ -197,6 +197,6 @@ create policy "Users can delete todo note links in their todos"
   on todo_note_links for delete
   using (
     exists (
-      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = auth.uid()
+      select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = (select auth.uid())
     )
   );
