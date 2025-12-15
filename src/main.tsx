@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 
 import { AppRoutes } from './Routes.tsx'
 import { ErrorFallback } from './ErrorFallback.tsx'
+import { AuthProvider } from './providers/AuthProvider.tsx'
 
 import "./main.css"
 import "./styles/theme.css"
@@ -13,8 +14,10 @@ import "./index.css"
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary FallbackComponent={ErrorFallback}>
     <BrowserRouter>
-      <AppRoutes />
-      <Toaster position="bottom-right" />
+      <AuthProvider>
+        <AppRoutes />
+        <Toaster position="bottom-right" />
+      </AuthProvider>
     </BrowserRouter>
    </ErrorBoundary>
 )

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { PlusIcon, MagnifyingGlassIcon, TrashIcon, ArrowCounterClockwiseIcon, NotePencilIcon, ListIcon, CheckCircleIcon, MoonIcon, SunIcon, ShareNetwork } from '@phosphor-icons/react';
+import { PlusIcon, MagnifyingGlassIcon, TrashIcon, ArrowCounterClockwiseIcon, NotePencilIcon, ListIcon, CheckCircleIcon, MoonIcon, SunIcon, ShareNetwork, GoogleLogo, SignOut } from '@phosphor-icons/react';
 import { NoteCard } from '@/components/NoteCard';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { AttachmentManager } from '@/components/AttachmentManager';
@@ -17,8 +17,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/providers/AuthProvider';
 
 function App() {
+  const { user, loading: authLoading, actionLoading, signInWithGoogle, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -284,6 +286,40 @@ function App() {
     };
   }, [resize, stopResizing]);
 
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Checking your session...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md space-y-6 rounded-xl border border-border bg-card/60 p-8 shadow-sm backdrop-blur">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+            <p className="text-muted-foreground text-sm">
+              Sign in with Google to continue to your notes and todos.
+            </p>
+          </div>
+          <Button
+            onClick={signInWithGoogle}
+            disabled={actionLoading}
+            className="w-full bg-accent hover:bg-accent/90"
+          >
+            <GoogleLogo size={18} className="mr-2" />
+            Continue with Google
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            You will be redirected to Google and back through Supabase.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -327,6 +363,20 @@ function App() {
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               {theme === 'light' ? <MoonIcon size={20} /> : <SunIcon size={20} />}
+            </Button>
+            {user?.email && (
+              <div className="hidden sm:block text-sm text-muted-foreground px-2">
+                {user.email}
+              </div>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={signOut}
+              disabled={actionLoading}
+            >
+              <SignOut size={18} className="mr-1" />
+              Sign out
             </Button>
           </div>
         </div>

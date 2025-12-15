@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import App from './App';
+import { AuthCallback } from './AuthCallback';
 import { WorkflowBuilder } from './components/WorkflowBuilder';
 import { WorkflowsHome } from './components/WorkflowsHome';
 
@@ -11,6 +12,7 @@ export function AppRoutes() {
       <Route path="/todos" element={<App />} />
       <Route path="/workflows" element={<WorkflowsHome />} />
       <Route path="/workflows/:workflowId" element={<WorkflowBuilder />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/" element={<Navigate to="/notes" replace />} />
     </Routes>
   );
