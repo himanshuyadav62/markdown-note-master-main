@@ -121,9 +121,10 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-accent"
+                  aria-label="Manage tags"
                   title="Manage tags"
                 >
-                  <TagIcon size={16} weight="fill" />
+                  <TagIcon size={16} weight="fill" aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
             <PopoverContent className="w-64 p-3" align="end">
@@ -141,8 +142,9 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                     size="icon"
                     onClick={handleAddTag}
                     className="h-8 w-8 shrink-0"
+                    aria-label="Add tag"
                   >
-                    <PlusIcon size={16} weight="bold" />
+                    <PlusIcon size={16} weight="bold" aria-hidden="true" />
                   </Button>
                 </div>
                 {tags.length > 0 && (
@@ -157,8 +159,9 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                         <button
                           onClick={() => handleRemoveTag(tag)}
                           className="ml-1.5 hover:text-destructive"
+                          aria-label={`Remove tag ${tag}`}
                         >
-                          <XIcon size={10} />
+                          <XIcon size={10} aria-hidden="true" />
                         </button>
                       </Badge>
                     ))}
@@ -178,9 +181,10 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-accent"
+                aria-label="Assign to groups"
                 title="Assign to groups"
               >
-                <FoldersIcon size={16} />
+                <FoldersIcon size={16} aria-hidden="true" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 p-3" align="end">
@@ -219,18 +223,20 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
             size="icon"
             onClick={onLinkNotes}
             className="h-8 w-8 text-muted-foreground hover:text-accent"
+            aria-label="Link notes"
             title="Link notes"
           >
-            <LinkIcon size={16} />
+            <LinkIcon size={16} aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={onDelete}
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            aria-label="Delete todo"
             title="Delete"
           >
-            <TrashIcon size={16} />
+            <TrashIcon size={16} aria-hidden="true" />
           </Button>
           </div>
         </div>

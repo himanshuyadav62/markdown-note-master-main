@@ -498,8 +498,9 @@ export function WorkflowBuilder() {
               size="icon"
               onClick={toggleTheme}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
-              {theme === 'light' ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+              {theme === 'light' ? <MoonIcon size={18} aria-hidden="true" /> : <SunIcon size={18} aria-hidden="true" />}
             </Button>
           </div>
         </div>

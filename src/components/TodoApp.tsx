@@ -611,6 +611,7 @@ export function TodoApp({ onNavigateToNote, notes, initialGroup }: TodoAppProps)
                                                 <div
                                                     className="w-2 h-2 rounded-full"
                                                     style={{ backgroundColor: group.color }}
+                                                    aria-hidden="true"
                                                 />
                                                 {group.name} ({getTodosForGroup(group.id).length})
                                             </div>

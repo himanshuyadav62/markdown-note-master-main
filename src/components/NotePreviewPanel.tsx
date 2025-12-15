@@ -48,9 +48,11 @@ export function NotePreviewPanel({ note, onClose, onNavigateToNote }: NotePrevie
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8"
+               className="h-8 w-8"
+               aria-label="Close preview"
+               title="Close preview"
           >
-            <XIcon size={20} />
+               <XIcon size={20} aria-hidden="true" />
           </Button>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -68,9 +70,11 @@ export function NotePreviewPanel({ note, onClose, onNavigateToNote }: NotePrevie
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="h-8 w-8"
+             className="h-8 w-8"
+             aria-label="Close preview"
+             title="Close preview"
         >
-          <XIcon size={20} />
+             <XIcon size={20} aria-hidden="true" />
         </Button>
       </div>
       

@@ -189,9 +189,10 @@ export function AttachmentManager({ attachments, onAdd, onRemove }: AttachmentMa
                           e.stopPropagation();
                           viewAttachment(attachment);
                         }}
+                        aria-label="View attachment"
                         title="View"
                       >
-                        <EyeIcon size={18} />
+                        <EyeIcon size={18} aria-hidden="true" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -201,9 +202,10 @@ export function AttachmentManager({ attachments, onAdd, onRemove }: AttachmentMa
                           e.stopPropagation();
                           downloadAttachment(attachment);
                         }}
+                        aria-label="Download attachment"
                         title="Download"
                       >
-                        <DownloadSimpleIcon size={18} />
+                        <DownloadSimpleIcon size={18} aria-hidden="true" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -213,9 +215,10 @@ export function AttachmentManager({ attachments, onAdd, onRemove }: AttachmentMa
                           e.stopPropagation();
                           onRemove(attachment.id);
                         }}
+                        aria-label="Remove attachment"
                         title="Remove"
                       >
-                        <XIcon size={18} />
+                        <XIcon size={18} aria-hidden="true" />
                       </Button>
                     </div>
                   </Card>

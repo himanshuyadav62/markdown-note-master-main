@@ -63,8 +63,10 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Not
           size="icon"
           onClick={onDelete}
           className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+          aria-label="Delete note"
+          title="Delete note"
         >
-          <TrashIcon size={16} />
+          <TrashIcon size={16} aria-hidden="true" />
         </Button>
       </div>
     </Card>

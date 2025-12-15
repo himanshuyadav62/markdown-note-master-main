@@ -352,17 +352,18 @@ function App() {
               size="icon"
               onClick={() => setIsSidebarVisible(prev => !prev)}
               title={isSidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+              aria-label={isSidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
             >
-              <ListIcon size={24} />
+              <ListIcon size={24} aria-hidden="true" />
             </Button>
             <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as 'notes' | 'todos')}>
               <TabsList>
                 <TabsTrigger value="notes">
-                  <NotePencilIcon size={18} className="mr-1" />
+                  <NotePencilIcon size={18} className="mr-1" aria-hidden="true" />
                   Notes
                 </TabsTrigger>
                 <TabsTrigger value="todos">
-                  <CheckCircleIcon size={18} className="mr-1" />
+                  <CheckCircleIcon size={18} className="mr-1" aria-hidden="true" />
                   Todos
                 </TabsTrigger>
               </TabsList>
@@ -383,8 +384,9 @@ function App() {
               size="icon"
               onClick={toggleTheme}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
-              {theme === 'light' ? <MoonIcon size={20} /> : <SunIcon size={20} />}
+              {theme === 'light' ? <MoonIcon size={20} aria-hidden="true" /> : <SunIcon size={20} aria-hidden="true" />}
             </Button>
             {user?.email && (
               <div className="hidden sm:block text-sm text-muted-foreground px-2">

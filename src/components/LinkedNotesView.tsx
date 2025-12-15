@@ -23,8 +23,10 @@ export function LinkedNotesView({ notes, onClose, onNavigateToNote, onPreviewNot
           size="icon"
           onClick={onClose}
           className="h-8 w-8"
+          aria-label="Close linked notes"
+          title="Close linked notes"
         >
-          <XIcon size={20} />
+          <XIcon size={20} aria-hidden="true" />
         </Button>
       </div>
       
