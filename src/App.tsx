@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,15 +19,20 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/providers/AuthProvider';
+import { useNotes, useTodos } from '@/hooks/use-data-sync';
 
 function App() {
-  const { user, loading: authLoading, actionLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, loading: authLoading, actionLoading, isSkipped, signInWithGoogle, signOut, skipLogin } = useAuth();
+  const { notes: notesData, setNotes } = useNotes();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { noteId } = useParams<{ noteId?: string }>();
   const [activeTab, setActiveTab] = useState<'notes' | 'todos'>('notes');
-  const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
+  const [notes, setNotesLocal] = useLocalStorage<Note[]>('notes', []);
+  // Use synced data if logged in, otherwise use local storage
+  const allNotes = user ? notesData : notes;
+  const setAllNotes = user ? setNotes : setNotesLocal;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
@@ -69,12 +75,12 @@ function App() {
 
   const navigateToNote = useCallback((noteId: string) => {
     setActiveTab('notes');
-    const note = notes?.find(n => n.id === noteId);
+    const note = allNotes?.find(n => n.id === noteId);
     if (note) {
       handleSelectNoteWithNavigation(note);
       toast.success(`Opened note: ${note.title}`);
     }
-  }, [notes, handleSelectNoteWithNavigation]);
+  }, [allNotes, handleSelectNoteWithNavigation]);
 
   const selectedNote = useMemo(
     () => notes?.find(note => note.id === selectedNoteId),
@@ -89,14 +95,14 @@ function App() {
   }, [selectedNote]);
 
   const activeNotes = useMemo(() => {
-    if (!notes) return [];
-    return notes.filter(note => !note.deletedAt);
-  }, [notes]);
+    if (!allNotes) return [];
+    return allNotes.filter(note => !note.deletedAt);
+  }, [allNotes]);
 
   const deletedNotes = useMemo(() => {
-    if (!notes) return [];
-    return notes.filter(note => note.deletedAt).sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
-  }, [notes]);
+    if (!allNotes) return [];
+    return allNotes.filter(note => note.deletedAt).sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+  }, [allNotes]);
 
   const filteredNotes = useMemo(() => {
     if (!activeNotes) return [];
@@ -114,36 +120,36 @@ function App() {
 
   const createNewNote = useCallback(() => {
     const newNote: Note = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       title: 'Untitled Note',
       content: '',
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    setNotes(current => [newNote, ...(current || [])]);
+    setAllNotes(current => [newNote, ...(current || [])]);
     setSelectedNoteId(newNote.id);
     setEditTitle(newNote.title);
     setEditContent('');
     navigate(`/notes/${newNote.id}`);
     toast.success('New note created');
-  }, [setNotes, navigate]);
+  }, [setAllNotes, navigate]);
 
   const updateNote = useCallback((updates: Partial<Note>) => {
     if (!selectedNoteId) return;
     
-    setNotes(current => 
+    setAllNotes(current => 
       (current || []).map(note => 
         note.id === selectedNoteId 
           ? { ...note, ...updates, updatedAt: Date.now() }
           : note
       )
     );
-  }, [selectedNoteId, setNotes]);
+  }, [selectedNoteId, setAllNotes]);
 
   const addAttachments = useCallback((newAttachments: Attachment[]) => {
     if (!selectedNoteId) return;
     
-    setNotes(current => 
+    setAllNotes(current => 
       (current || []).map(note => 
         note.id === selectedNoteId 
           ? { 
@@ -154,12 +160,12 @@ function App() {
           : note
       )
     );
-  }, [selectedNoteId, setNotes]);
+  }, [selectedNoteId, setAllNotes]);
 
   const removeAttachment = useCallback((attachmentId: string) => {
     if (!selectedNoteId) return;
     
-    setNotes(current => 
+    setAllNotes(current => 
       (current || []).map(note => 
         note.id === selectedNoteId 
           ? { 
@@ -171,10 +177,10 @@ function App() {
       )
     );
     toast.success('Attachment removed');
-  }, [selectedNoteId, setNotes]);
+  }, [selectedNoteId, setAllNotes]);
 
   const deleteNote = useCallback((id: string) => {
-    setNotes(current => 
+    setAllNotes(current => 
       (current || []).map(note => 
         note.id === id ? { ...note, deletedAt: Date.now() } : note
       )
@@ -191,27 +197,27 @@ function App() {
         onClick: () => restoreNote(id)
       }
     });
-  }, [selectedNoteId, setNotes, navigate]);
+  }, [selectedNoteId, setAllNotes, navigate]);
 
   const restoreNote = useCallback((id: string) => {
-    setNotes(current => 
+    setAllNotes(current => 
       (current || []).map(note => 
         note.id === id ? { ...note, deletedAt: undefined } : note
       )
     );
     toast.success('Note restored');
-  }, [setNotes]);
+  }, [setAllNotes]);
 
   const permanentlyDeleteNote = useCallback((id: string) => {
-    setNotes(current => (current || []).filter(note => note.id !== id));
+    setAllNotes(current => (current || []).filter(note => note.id !== id));
     setPermanentDeleteId(null);
     toast.success('Note permanently deleted');
-  }, [setNotes]);
+  }, [setAllNotes]);
 
   const emptyRecycleBin = useCallback(() => {
-    setNotes(current => (current || []).filter(note => !note.deletedAt));
+    setAllNotes(current => (current || []).filter(note => !note.deletedAt));
     toast.success('Recycle bin emptied');
-  }, [setNotes]);
+  }, [setAllNotes]);
 
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
@@ -294,14 +300,14 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !isSkipped) {
     return (
       <div className="h-screen flex items-center justify-center bg-background px-6">
         <div className="w-full max-w-md space-y-6 rounded-xl border border-border bg-card/60 p-8 shadow-sm backdrop-blur">
           <div className="space-y-2 text-center">
             <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
             <p className="text-muted-foreground text-sm">
-              Sign in with Google to continue to your notes and todos.
+              Sign in with Google to sync your notes and todos across devices, or continue without signing in.
             </p>
           </div>
           <Button
@@ -312,8 +318,24 @@ function App() {
             <GoogleLogo size={18} className="mr-2" />
             Continue with Google
           </Button>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-card/60 text-muted-foreground">or</span>
+            </div>
+          </div>
+          <Button
+            onClick={skipLogin}
+            disabled={actionLoading}
+            variant="outline"
+            className="w-full"
+          >
+            Continue with Local Storage
+          </Button>
           <p className="text-xs text-center text-muted-foreground">
-            You will be redirected to Google and back through Supabase.
+            Signing in lets you sync your data. Skipping uses local storage only.
           </p>
         </div>
       </div>
@@ -369,15 +391,27 @@ function App() {
                 {user.email}
               </div>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={signOut}
-              disabled={actionLoading}
-            >
-              <SignOut size={18} className="mr-1" />
-              Sign out
-            </Button>
+            {user ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={signOut}
+                disabled={actionLoading}
+              >
+                <SignOut size={18} className="mr-1" />
+                Sign out
+              </Button>
+            ) : isSkipped ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={signInWithGoogle}
+                disabled={actionLoading}
+              >
+                <GoogleLogo size={18} className="mr-1" />
+                Sign in
+              </Button>
+            ) : null}
           </div>
         </div>
       </header>
@@ -595,7 +629,7 @@ function App() {
         ) : (
           <TodoApp 
             onNavigateToNote={navigateToNote} 
-            notes={notes || []} 
+            notes={allNotes || []} 
             initialGroup={searchParams.get('todoGroup') || undefined}
           />
         )}

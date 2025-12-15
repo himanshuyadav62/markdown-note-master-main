@@ -9,8 +9,10 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   actionLoading: boolean;
+  isSkipped: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  skipLogin: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -20,6 +22,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isSkipped, setIsSkipped] = useState(() => {
+    // Check if user previously skipped login
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('auth_skipped') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -74,7 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       toast.error(error.message || 'Unable to sign out.');
     }
+    setIsSkipped(false);
+    localStorage.removeItem('auth_skipped');
     setActionLoading(false);
+  };
+
+  const skipLogin = () => {
+    setIsSkipped(true);
+    localStorage.setItem('auth_skipped', 'true');
   };
 
   const value = useMemo(
@@ -83,10 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       loading: initializing,
       actionLoading,
+      isSkipped,
       signInWithGoogle,
       signOut,
+      skipLogin,
     }),
-    [user, session, initializing, actionLoading]
+    [user, session, initializing, actionLoading, isSkipped]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

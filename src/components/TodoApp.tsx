@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useSearchParams } from 'react-router-dom';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
@@ -165,7 +166,7 @@ export function TodoApp({ onNavigateToNote, notes, initialGroup }: TodoAppProps)
         }
 
         const newTodo: Todo = {
-            id: Date.now().toString(),
+            id: uuidv4(),
             title: newTodoTitle.trim(),
             completed: false,
             createdAt: Date.now(),
@@ -296,7 +297,7 @@ export function TodoApp({ onNavigateToNote, notes, initialGroup }: TodoAppProps)
         }
 
         const newGroup: TodoGroup = {
-            id: Date.now().toString(),
+            id: uuidv4(),
             name: newGroupName.trim(),
             color: newGroupColor,
             createdAt: Date.now(),

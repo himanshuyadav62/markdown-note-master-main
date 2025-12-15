@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PaperclipIcon, XIcon, FileIcon, FileTextIcon, FilePdfIcon, FileArchiveIcon, FileImageIcon, DownloadSimpleIcon, EyeIcon, UploadSimpleIcon } from '@phosphor-icons/react';
+import { v4 as uuidv4 } from 'uuid';
 import { Attachment } from '@/lib/types';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -59,7 +60,7 @@ export function AttachmentManager({ attachments, onAdd, onRemove }: AttachmentMa
         });
 
         newAttachments.push({
-          id: Date.now().toString() + i,
+          id: uuidv4(),
           name: file.name,
           size: file.size,
           type: file.type,
