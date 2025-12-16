@@ -326,28 +326,23 @@ export function WorkflowBuilder() {
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
-  // Debug: log edges to verify creation and rendering state
+  // Persist workflow state and update last saved timestamp
   useEffect(() => {
-    // eslint-disable-next-line no-console
+    const now = Date.now();
     const newState = { meta, nodes, edges, lastSaved: now };
     setWorkflowState(newState);
-    
+
     if (workflowId) {
       setWorkflows((list) => {
-        const updated = (list || []).map((w) => 
-          w.id === workflowId 
+        const updated = (list || []).map((w) =>
+          w.id === workflowId
             ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
             : w
         );
         return updated;
       });
     }
-  }, [meta, nodes, edges, workflowId, setWorkflowsd === workflowId ? { ...w, name, updatedAt: now } : w));
-        }
-        return [{ id: workflowId, name, updatedAt: now }, ...list];
-      });
-    }
-  }, [meta, nodes, edges, setWorkflow]);
+  }, [meta, nodes, edges, workflowId, setWorkflows]);
 
   useEffect(() => {
     if (!selectedNode && nodes.length > 0) {
@@ -752,7 +747,7 @@ export function WorkflowBuilder() {
             <Controls showZoom showFitView />
             <Panel position="top-right" className="bg-card/80 border border-border shadow-lg rounded-lg p-3">
               <div className="text-xs text-muted-foreground">Auto-saves locally</div>
-              <div className="text-sm font-medium">Last saved: {new Date(workflow.lastSaved).toLocaleTimeString()}</div>
+              <div className="text-sm font-medium">Last saved: {new Date(workflowState.lastSaved).toLocaleTimeString()}</div>
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch
                   checked={connectConfig.directed}

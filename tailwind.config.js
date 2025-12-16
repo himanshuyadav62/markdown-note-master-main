@@ -16,13 +16,18 @@ const defaultTheme = {
   container: {
     center: true,
     padding: "2rem",
+    // Limit container breakpoints to valid width-based screens to avoid invalid media queries
+    screens: {
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
+    },
   },
   extend: {
-    screens: {
-      coarse: { raw: "(pointer: coarse)" },
-      fine: { raw: "(pointer: fine)" },
-      pwa: { raw: "(display-mode: standalone)" },
-    },
+    // Avoid defining raw media-query screens here because the container
+    // plugin treats all screens as width breakpoints, producing invalid CSS.
     colors: {
       neutral: {
         1: "var(--color-neutral-1)",
