@@ -387,6 +387,7 @@ export function useTodoGroups(): UseTodoGroupsResult {
 interface UseWorkflowsResult {
   workflows: Workflow[];
   setWorkflows: (workflows: Workflow[] | ((prev: Workflow[]) => Workflow[])) => Promise<void>;
+  deleteWorkflow: (id: string) => Promise<void>;
   dataMode: DataMode;
   refetch: () => Promise<void>;
 }
@@ -396,6 +397,7 @@ export function useWorkflows(): UseWorkflowsResult {
   const [workflows, setWorkflowsState] = useState<Workflow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadedMode, setLoadedMode] = useState<DataMode | 'none'>('none');
 
   const dataMode: DataMode = user ? 'remote' : 'local';
 
@@ -424,6 +426,7 @@ export function useWorkflows(): UseWorkflowsResult {
     }
     setIsLoading(false);
     setHasLoaded(true);
+    setLoadedMode('local');
   }, []);
 
   // Load workflows from Supabase
@@ -433,6 +436,7 @@ export function useWorkflows(): UseWorkflowsResult {
       const { data, error } = await supabase
         .from('workflows')
         .select('*')
+        .is('deleted_at', null)
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
@@ -455,6 +459,7 @@ export function useWorkflows(): UseWorkflowsResult {
     } finally {
       setIsLoading(false);
       setHasLoaded(true);
+      setLoadedMode('remote');
     }
   }, [user]);
 
@@ -469,6 +474,13 @@ export function useWorkflows(): UseWorkflowsResult {
       loadRemoteWorkflows();
     }
   }, [user?.id, hasLoaded]);
+
+  // If we initially loaded local (before auth resolved), load remote once user becomes available
+  useEffect(() => {
+    if (user?.id && hasLoaded && loadedMode === 'local') {
+      loadRemoteWorkflows();
+    }
+  }, [user?.id, hasLoaded, loadedMode, loadRemoteWorkflows]);
 
   // Save workflows
   const setWorkflows = useCallback(
@@ -529,6 +541,44 @@ export function useWorkflows(): UseWorkflowsResult {
     [workflows, dataMode, user]
   );
 
+  // Delete workflow (hard delete remotely, remove locally)
+  const deleteWorkflow = useCallback(
+    async (id: string): Promise<void> => {
+      // Optimistically update local state
+      setWorkflowsState((prev) => (prev || []).filter((w) => w.id !== id));
+
+      if (dataMode === 'local') {
+        try {
+          // Update summaries
+          const summariesRaw = localStorage.getItem('workflows-list');
+          const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
+          const nextSummaries = (summaries || []).filter((s: any) => s.id !== id);
+          localStorage.setItem('workflows-list', JSON.stringify(nextSummaries));
+          // Remove stored workflow data blob
+          localStorage.removeItem(`workflow:${id}`);
+        } catch (error) {
+          console.error('Failed to delete local workflow:', error);
+          toast.error('Failed to delete workflow');
+        }
+      } else if (dataMode === 'remote' && user) {
+        try {
+          const { error } = await supabase
+            .from('workflows')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+          if (error) throw error;
+        } catch (error) {
+          console.error('Failed to delete remote workflow:', error);
+          toast.error('Failed to delete workflow from Supabase');
+          // On failure, refetch to restore state
+          await loadRemoteWorkflows();
+        }
+      }
+    },
+    [dataMode, user, loadRemoteWorkflows]
+  );
+
   const refetch = useCallback(
     () => dataMode === 'local' ? loadLocalWorkflows() : loadRemoteWorkflows(),
     [dataMode, loadLocalWorkflows, loadRemoteWorkflows]
@@ -537,6 +587,7 @@ export function useWorkflows(): UseWorkflowsResult {
   return {
     workflows,
     setWorkflows,
+    deleteWorkflow,
     dataMode,
     refetch,
   };

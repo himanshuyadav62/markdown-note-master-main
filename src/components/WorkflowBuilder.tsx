@@ -19,7 +19,7 @@ import { Menu, Item, useContextMenu, ItemParams } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 import { Position } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { ArrowLineRightIcon, FlowArrowIcon, GraphIcon, ListPlusIcon, MoonIcon, ShareNetworkIcon, SparkleIcon, SunIcon, TargetIcon, TreeStructureIcon } from '@phosphor-icons/react';
+import { ArrowLineRightIcon, FlowArrowIcon, GraphIcon, ListPlusIcon, MoonIcon, ShareNetworkIcon, SparkleIcon, SunIcon, TargetIcon, TreeStructureIcon, GoogleLogo, SignOut } from '@phosphor-icons/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/providers/AuthProvider';
 import { useWorkflows } from '@/hooks/use-data-sync';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/use-theme';
@@ -274,6 +275,7 @@ function edgeWithDirection(
 }
 
 export function WorkflowBuilder() {
+    const { user, actionLoading, isSkipped, signInWithGoogle, signOut } = useAuth();
   const navigate = useNavigate();
   const { workflowId } = useParams<{ workflowId: string }>();
   const { theme, toggleTheme } = useTheme();
@@ -520,7 +522,6 @@ export function WorkflowBuilder() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {/* removed demo reset to keep workflows user-owned */}
             <Button
               variant="ghost"
               size="icon"
@@ -529,6 +530,32 @@ export function WorkflowBuilder() {
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               {theme === 'light' ? <MoonIcon size={18} aria-hidden="true" /> : <SunIcon size={18} aria-hidden="true" />}
+                        {user?.email && (
+                          <div className="hidden sm:block text-sm text-muted-foreground px-2">
+                            {user.email}
+                          </div>
+                        )}
+                        {user ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={signOut}
+                            disabled={actionLoading}
+                          >
+                            <SignOut size={18} className="mr-1" />
+                            Sign out
+                          </Button>
+                        ) : isSkipped ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={signInWithGoogle}
+                            disabled={actionLoading}
+                          >
+                            <GoogleLogo size={18} className="mr-1" />
+                            Sign in
+                          </Button>
+                        ) : null}
             </Button>
           </div>
         </div>

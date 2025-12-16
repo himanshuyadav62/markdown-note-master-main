@@ -1,16 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/providers/AuthProvider';
+import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useWorkflows } from '@/hooks/use-data-sync';
-import { SparkleIcon, ShareNetworkIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { SparkleIcon, ShareNetworkIcon, PlusIcon, TrashIcon, MoonIcon, SunIcon, GoogleLogo, SignOut } from '@phosphor-icons/react';
 
 export function WorkflowsHome() {
+    const { user, actionLoading, isSkipped, signInWithGoogle, signOut } = useAuth();
+    const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const { workflows, setWorkflows } = useWorkflows();
+  const { workflows, setWorkflows, deleteWorkflow: deleteWorkflowRemote } = useWorkflows();
   const [newName, setNewName] = useState('');
 
   const sorted = useMemo(() => [...workflows].sort((a, b) => b.updatedAt - a.updatedAt), [workflows]);
@@ -31,8 +35,8 @@ export function WorkflowsHome() {
     navigate(`/workflows/${id}`);
   };
 
-  const deleteWorkflow = (id: string) => {
-    setWorkflows((arr) => (arr || []).filter((w) => w.id !== id));
+  const deleteWorkflow = async (id: string) => {
+    await deleteWorkflowRemote(id);
   };
 
   return (
@@ -47,6 +51,41 @@ export function WorkflowsHome() {
             <span className="text-sm text-muted-foreground hidden md:inline">Create and manage your workflow graphs.</span>
           </div>
           <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={toggleTheme}
+                          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                        >
+                          {theme === 'light' ? <MoonIcon size={20} aria-hidden="true" /> : <SunIcon size={20} aria-hidden="true" />}
+                        </Button>
+                        {user?.email && (
+                          <div className="hidden sm:block text-sm text-muted-foreground px-2">
+                            {user.email}
+                          </div>
+                        )}
+                        {user ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={signOut}
+                            disabled={actionLoading}
+                          >
+                            <SignOut size={18} className="mr-1" />
+                            Sign out
+                          </Button>
+                        ) : isSkipped ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={signInWithGoogle}
+                            disabled={actionLoading}
+                          >
+                            <GoogleLogo size={18} className="mr-1" />
+                            Sign in
+                          </Button>
+                        ) : null}
             <Button variant="outline" size="sm" onClick={() => navigate('/notes')}>Notes</Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/todos')}>Todos</Button>
           </div>
