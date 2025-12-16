@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge,
   Background,
@@ -322,6 +322,7 @@ export function WorkflowBuilder() {
   const [connectConfig, setConnectConfig] = useState({ directed: true, label: 'flows to' });
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const { show } = useContextMenu<{ edgeId: string }>({ id: 'edge-menu' });
+  const lastSavedStateRef = useRef<string>('');
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
@@ -339,28 +340,35 @@ export function WorkflowBuilder() {
   // Persist workflow state and update last saved timestamp
   useEffect(() => {
     // Only persist after component is initialized to prevent loops on mount
-    if (!isInitialized) return;
+    if (!isInitialized || !workflowId || !currentWorkflow) return;
     
     const now = Date.now();
     const newState = { meta, nodes, edges, lastSaved: now };
+    
+    // Check if the state actually changed by comparing JSON strings
+    const newStateString = JSON.stringify({ meta, nodes, edges });
+    if (newStateString === lastSavedStateRef.current) {
+      return; // No changes, skip save
+    }
+    
+    // Update the last saved state reference
+    lastSavedStateRef.current = newStateString;
     setWorkflowState(newState);
 
-    if (workflowId && currentWorkflow) {
-      // Use a timeout to debounce saves and prevent infinite loops
-      const timeoutId = setTimeout(async () => {
-        await setWorkflows((list) => {
-          const updated = (list || []).map((w) =>
-            w.id === workflowId
-              ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
-              : w
-          );
-          return updated;
-        });
-      }, 100);
+    // Use a timeout to debounce saves and prevent infinite loops
+    const timeoutId = setTimeout(async () => {
+      await setWorkflows((list) => {
+        const updated = (list || []).map((w) =>
+          w.id === workflowId
+            ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
+            : w
+        );
+        return updated;
+      });
+    }, 300); // Increased debounce time to 300ms
 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [meta, nodes, edges, workflowId, currentWorkflow, setWorkflows, isInitialized]);
+    return () => clearTimeout(timeoutId);
+  }, [meta, nodes, edges, workflowId, isInitialized]); // Removed currentWorkflow and setWorkflows from deps
 
   useEffect(() => {
     if (!selectedNode && nodes.length > 0) {
