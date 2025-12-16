@@ -272,6 +272,118 @@ export function useTodos(): UseTodosResult {
   };
 }
 
+interface UseTodoGroupsResult {
+  groups: TodoGroup[];
+  setGroups: (groups: TodoGroup[] | ((prev: TodoGroup[]) => TodoGroup[])) => Promise<void>;
+  dataMode: DataMode;
+  refetch: () => Promise<void>;
+}
+
+export function useTodoGroups(): UseTodoGroupsResult {
+  const { user } = useAuth();
+  const [groups, setGroupsState] = useState<TodoGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const dataMode: DataMode = user ? 'remote' : 'local';
+
+  const loadLocalGroups = useCallback(async () => {
+    try {
+      const stored = localStorage.getItem('todo-groups');
+      setGroupsState(stored ? JSON.parse(stored) : []);
+    } catch (error) {
+      console.error('Failed to load local todo groups:', error);
+      setGroupsState([]);
+    }
+    setIsLoading(false);
+    setHasLoaded(true);
+  }, []);
+
+  const loadRemoteGroups = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('todo_groups')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setGroupsState(
+        (data || []).map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          color: g.color,
+          createdAt: new Date(g.created_at).getTime(),
+          isDefault: !!g.is_default,
+        }))
+      );
+    } catch (error) {
+      console.error('Failed to load remote todo groups:', error);
+      toast.error('Failed to load groups from Supabase');
+    } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (hasLoaded) return;
+    if (dataMode === 'local') {
+      loadLocalGroups();
+    } else if (dataMode === 'remote') {
+      loadRemoteGroups();
+    }
+  }, [user?.id, hasLoaded]);
+
+  const setGroups = useCallback(
+    async (
+      groupsOrUpdater: TodoGroup[] | ((prev: TodoGroup[]) => TodoGroup[])
+    ): Promise<void> => {
+      const nextGroups =
+        typeof groupsOrUpdater === 'function'
+          ? (groupsOrUpdater as (prev: TodoGroup[]) => TodoGroup[])(groups)
+          : groupsOrUpdater;
+
+      setGroupsState(nextGroups);
+
+      if (dataMode === 'local') {
+        try {
+          localStorage.setItem('todo-groups', JSON.stringify(nextGroups));
+        } catch (error) {
+          console.error('Failed to save local todo groups:', error);
+          toast.error('Failed to save groups');
+        }
+      } else if (dataMode === 'remote' && user) {
+        try {
+          for (const group of nextGroups) {
+            const { error } = await supabase.from('todo_groups').upsert({
+              id: group.id,
+              user_id: user.id,
+              name: group.name,
+              color: group.color,
+              created_at: new Date(group.createdAt).toISOString(),
+              is_default: !!group.isDefault,
+            });
+            if (error) throw error;
+          }
+        } catch (error) {
+          console.error('Failed to save remote todo groups:', error);
+          toast.error('Failed to save groups to Supabase');
+        }
+      }
+    },
+    [groups, dataMode, user]
+  );
+
+  const refetch = useCallback(
+    () => (dataMode === 'local' ? loadLocalGroups() : loadRemoteGroups()),
+    [dataMode, loadLocalGroups, loadRemoteGroups]
+  );
+
+  return { groups, setGroups, dataMode, refetch };
+}
+
 interface UseWorkflowsResult {
   workflows: Workflow[];
   setWorkflows: (workflows: Workflow[] | ((prev: Workflow[]) => Workflow[])) => Promise<void>;

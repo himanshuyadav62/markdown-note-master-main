@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useSearchParams } from 'react-router-dom';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,6 +14,7 @@ import { NoteLinkDialog } from '@/components/NoteLinkDialog';
 import { LinkedNotesView } from '@/components/LinkedNotesView';
 import { NotePreviewPanel } from '@/components/NotePreviewPanel';
 import { Todo, Note, TodoGroup } from '@/lib/types';
+import { useTodoGroups } from '@/hooks/use-data-sync';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,7 @@ interface TodoAppProps {
 
 export function TodoApp({ onNavigateToNote, notes, initialGroup, todos, setTodos }: TodoAppProps) {
     const [searchParams, setSearchParams] = useSearchParams();
-    const [groups, setGroups] = useLocalStorage<TodoGroup[]>('todo-groups', []);
+    const { groups, setGroups } = useTodoGroups();
     const [newTodoTitle, setNewTodoTitle] = useState('');
     const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
     const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
