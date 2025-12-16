@@ -124,11 +124,16 @@ export function useNotes(): UseNotesResult {
     [notes, dataMode, user]
   );
 
+  const refetch = useMemo(
+    () => dataMode === 'local' ? loadLocalNotes : loadRemoteNotes,
+    [dataMode, loadLocalNotes, loadRemoteNotes]
+  );
+
   return {
     notes,
     setNotes,
     dataMode,
-    refetch: dataMode === 'local' ? loadLocalNotes : loadRemoteNotes,
+    refetch,
   };
 }
 
@@ -254,10 +259,15 @@ export function useTodos(): UseTodosResult {
     [todos, dataMode, user]
   );
 
+  const refetch = useMemo(
+    () => dataMode === 'local' ? loadLocalTodos : loadRemoteTodos,
+    [dataMode, loadLocalTodos, loadRemoteTodos]
+  );
+
   return {
     todos,
     setTodos,
     dataMode,
-    refetch: dataMode === 'local' ? loadLocalTodos : loadRemoteTodos,
+    refetch,
   };
 }
