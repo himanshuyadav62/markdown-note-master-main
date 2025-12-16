@@ -22,7 +22,7 @@ export function useNotes(): UseNotesResult {
   const dataMode: DataMode = user ? 'remote' : 'local';
 
   // Load notes from localStorage
-  const loadLocalNotes = useCallback(() => {
+  const loadLocalNotes = useCallback(async () => {
     try {
       const stored = localStorage.getItem('notes');
       setNotesState(stored ? JSON.parse(stored) : []);
@@ -75,7 +75,7 @@ export function useNotes(): UseNotesResult {
     } else if (dataMode === 'remote') {
       loadRemoteNotes();
     }
-  }, [dataMode, user?.id]); // Only depend on user.id, not the functions
+  }, [dataMode, user?.id, hasLoaded]); // Include hasLoaded to prevent multiple calls
 
   // Save notes
   const setNotes = useCallback(
@@ -124,8 +124,8 @@ export function useNotes(): UseNotesResult {
     [notes, dataMode, user]
   );
 
-  const refetch = useMemo(
-    () => dataMode === 'local' ? loadLocalNotes : loadRemoteNotes,
+  const refetch = useCallback(
+    () => dataMode === 'local' ? loadLocalNotes() : loadRemoteNotes(),
     [dataMode, loadLocalNotes, loadRemoteNotes]
   );
 
@@ -153,7 +153,7 @@ export function useTodos(): UseTodosResult {
   const dataMode: DataMode = user ? 'remote' : 'local';
 
   // Load todos from localStorage
-  const loadLocalTodos = useCallback(() => {
+  const loadLocalTodos = useCallback(async () => {
     try {
       const stored = localStorage.getItem('todos');
       setTodosState(stored ? JSON.parse(stored) : []);
@@ -210,7 +210,7 @@ export function useTodos(): UseTodosResult {
     } else if (dataMode === 'remote') {
       loadRemoteTodos();
     }
-  }, [dataMode, user?.id]); // Only depend on user.id, not the functions
+  }, [dataMode, user?.id, hasLoaded]); // Include hasLoaded to prevent multiple calls
 
   // Save todos
   const setTodos = useCallback(
@@ -259,8 +259,8 @@ export function useTodos(): UseTodosResult {
     [todos, dataMode, user]
   );
 
-  const refetch = useMemo(
-    () => dataMode === 'local' ? loadLocalTodos : loadRemoteTodos,
+  const refetch = useCallback(
+    () => dataMode === 'local' ? loadLocalTodos() : loadRemoteTodos(),
     [dataMode, loadLocalTodos, loadRemoteTodos]
   );
 
