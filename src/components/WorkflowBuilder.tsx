@@ -347,8 +347,8 @@ export function WorkflowBuilder() {
 
     if (workflowId && currentWorkflow) {
       // Use a timeout to debounce saves and prevent infinite loops
-      const timeoutId = setTimeout(() => {
-        setWorkflows((list) => {
+      const timeoutId = setTimeout(async () => {
+        await setWorkflows((list) => {
           const updated = (list || []).map((w) =>
             w.id === workflowId
               ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
