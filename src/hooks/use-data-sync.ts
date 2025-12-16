@@ -416,6 +416,7 @@ export function useWorkflows(): UseWorkflowsResult {
           data: workflowData ? JSON.parse(workflowData) : null,
           createdAt: summary.createdAt || summary.updatedAt,
           updatedAt: summary.updatedAt,
+          todos: summary.todos || [],
         };
       });
       
@@ -451,6 +452,7 @@ export function useWorkflows(): UseWorkflowsResult {
           deletedAt: workflow.deleted_at
             ? new Date(workflow.deleted_at).getTime()
             : undefined,
+          todos: workflow.todos || [],
         }))
       );
     } catch (error) {
@@ -501,7 +503,8 @@ export function useWorkflows(): UseWorkflowsResult {
             id: w.id,
             name: w.name,
             updatedAt: w.updatedAt,
-            createdAt: w.createdAt
+            createdAt: w.createdAt,
+            todos: w.todos || [],
           }));
           localStorage.setItem('workflows-list', JSON.stringify(summaries));
           
@@ -528,6 +531,7 @@ export function useWorkflows(): UseWorkflowsResult {
               deleted_at: workflow.deletedAt
                 ? new Date(workflow.deletedAt).toISOString()
                 : null,
+              todos: workflow.todos || [],
             });
 
             if (error) throw error;

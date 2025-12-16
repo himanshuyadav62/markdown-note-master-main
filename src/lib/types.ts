@@ -1,3 +1,9 @@
+export interface WorkflowNodeData {
+  id: string;
+  name: string;
+  type: string;
+  todos: string[]; // List of todos associated with the node
+}
 export interface Attachment {
   id: string;
   name: string;
@@ -44,4 +50,5 @@ export interface Workflow {
   createdAt: number;
   updatedAt: number;
   deletedAt?: number;
+  todos: string[]; // List of associated todo IDs
 }

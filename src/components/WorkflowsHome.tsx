@@ -29,7 +29,8 @@ export function WorkflowsHome() {
       name,
       data: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      todos: []
     }, ...(arr || [])]);
     setNewName('');
     navigate(`/workflows/${id}`);

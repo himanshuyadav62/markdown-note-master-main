@@ -26,10 +26,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/providers/AuthProvider';
-import { useWorkflows } from '@/hooks/use-data-sync';
+import { useTodos, useWorkflows } from '@/hooks/use-data-sync';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/use-theme';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ type WorkflowNodeData = {
   status: NodeStatus;
   tags: string[];
   color: string;
+  todos: string[];
 };
 
 type WorkflowEdgeData = {
@@ -118,6 +120,14 @@ function WorkflowNode({ data }: { data: WorkflowNodeData }) {
           )}
         </div>
       )}
+      {data.todos.length > 0 && (
+        <div className="flex items-center gap-1 px-3 pb-3 text-[11px] text-muted-foreground">
+          <ListPlusIcon size={12} />
+          <span>
+            {data.todos.length} {data.todos.length === 1 ? 'todo' : 'todos'}
+          </span>
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-primary !w-3 !h-3" />
     </div>
   );
@@ -135,7 +145,8 @@ const defaultNodes: Node<WorkflowNodeData>[] = [
       context: 'Clarify the user problem, constraints, and success signals.',
       status: 'idea',
       tags: ['inputs', 'context'],
-      color: '#38bdf8'
+      color: '#38bdf8',
+      todos: []
     }
   },
   {
@@ -147,7 +158,8 @@ const defaultNodes: Node<WorkflowNodeData>[] = [
       context: 'Break work into thin slices, define acceptance, surface risks.',
       status: 'in-progress',
       tags: ['scope', 'alignment'],
-      color: '#818cf8'
+      color: '#818cf8',
+      todos: []
     }
   },
   {
@@ -159,7 +171,8 @@ const defaultNodes: Node<WorkflowNodeData>[] = [
       context: 'Implement, review quickly, keep PRs small, ship behind flags.',
       status: 'in-progress',
       tags: ['delivery'],
-      color: '#f59e0b'
+      color: '#f59e0b',
+      todos: []
     }
   },
   {
@@ -171,7 +184,8 @@ const defaultNodes: Node<WorkflowNodeData>[] = [
       context: 'Release, measure impact, and capture learnings for the next cycle.',
       status: 'done',
       tags: ['impact', 'feedback'],
-      color: '#22c55e'
+      color: '#22c55e',
+      todos: []
     }
   }
 ];
@@ -275,23 +289,53 @@ function edgeWithDirection(
 }
 
 export function WorkflowBuilder() {
-    const { user, actionLoading, isSkipped, signInWithGoogle, signOut } = useAuth();
+  const { user, actionLoading, isSkipped, signInWithGoogle, signOut } = useAuth();
   const navigate = useNavigate();
   const { workflowId } = useParams<{ workflowId: string }>();
   const { theme, toggleTheme } = useTheme();
   const { workflows, setWorkflows } = useWorkflows();
+  const { todos } = useTodos();
 
   // Find current workflow
-  const currentWorkflow = useMemo(() => 
-    workflows.find(w => w.id === workflowId),
+  const currentWorkflow = useMemo(
+    () => workflows.find((w) => w.id === workflowId),
     [workflows, workflowId]
   );
 
   const initialState = useMemo(() => {
+    const normalizeNodes = (rawNodes?: Node<WorkflowNodeData>[]) =>
+      (rawNodes || []).map((node) => {
+        const tags = Array.isArray((node.data as any)?.tags) ? (node.data as any).tags : [];
+        const todosForNode = Array.isArray((node.data as any)?.todos) ? (node.data as any).todos : [];
+        return {
+          ...node,
+          data: {
+            title: (node.data as any)?.title ?? 'Untitled node',
+            context: (node.data as any)?.context ?? '',
+            owner: (node.data as any)?.owner ?? '',
+            status: (node.data as any)?.status ?? 'idea',
+            tags,
+            color: (node.data as any)?.color ?? '#c7d2fe',
+            todos: todosForNode
+          }
+        };
+      });
+
     if (currentWorkflow?.data) {
-      return currentWorkflow.data as WorkflowState;
+      const data = currentWorkflow.data as WorkflowState;
+      return {
+        meta: {
+          title: data.meta?.title || currentWorkflow?.name || 'Untitled Workflow',
+          summary: data.meta?.summary || '',
+          globalContext: data.meta?.globalContext || '',
+          tags: data.meta?.tags || []
+        },
+        nodes: normalizeNodes(data.nodes || []),
+        edges: data.edges || [],
+        lastSaved: data.lastSaved || Date.now()
+      } as WorkflowState;
     }
-    // Return empty workflow for new workflows
+
     return {
       meta: { title: currentWorkflow?.name || 'Untitled Workflow', summary: '', globalContext: '', tags: [] },
       nodes: [],
@@ -325,6 +369,7 @@ export function WorkflowBuilder() {
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const { show } = useContextMenu<{ edgeId: string }>({ id: 'edge-menu' });
   const lastSavedStateRef = useRef<string>('');
+  const activeTodos = useMemo(() => (todos || []).filter((t) => !t.deletedAt), [todos]);
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
@@ -346,6 +391,7 @@ export function WorkflowBuilder() {
     
     const now = Date.now();
     const newState = { meta, nodes, edges, lastSaved: now };
+    const workflowTodos = Array.from(new Set(nodes.flatMap((n) => n.data.todos || [])));
     
     // Check if the state actually changed by comparing JSON strings
     const newStateString = JSON.stringify({ meta, nodes, edges });
@@ -362,7 +408,13 @@ export function WorkflowBuilder() {
       await setWorkflows((list) => {
         const updated = (list || []).map((w) =>
           w.id === workflowId
-            ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
+            ? {
+                ...w,
+                name: meta.title || 'Untitled Workflow',
+                data: newState,
+                updatedAt: now,
+                todos: workflowTodos
+              }
             : w
         );
         return updated;
@@ -467,7 +519,8 @@ export function WorkflowBuilder() {
         status: newNodeDraft.status,
         owner: newNodeDraft.owner.trim(),
         tags: parseTags(newNodeDraft.tags),
-        color: newNodeDraft.color
+        color: newNodeDraft.color,
+        todos: []
       }
     };
 
@@ -482,6 +535,23 @@ export function WorkflowBuilder() {
     (updates: Partial<WorkflowNodeData>) => {
       if (!selectedNodeId) return;
       setNodes((nds) => nds.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, ...updates } } : n)));
+    },
+    [selectedNodeId, setNodes]
+  );
+
+  const toggleTodoForSelectedNode = useCallback(
+    (todoId: string) => {
+      if (!selectedNodeId) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== selectedNodeId) return n;
+          const currentTodos = n.data.todos || [];
+          const nextTodos = currentTodos.includes(todoId)
+            ? currentTodos.filter((id) => id !== todoId)
+            : [...currentTodos, todoId];
+          return { ...n, data: { ...n.data, todos: nextTodos } };
+        })
+      );
     },
     [selectedNodeId, setNodes]
   );
@@ -767,6 +837,44 @@ export function WorkflowBuilder() {
                       onChange={(e) => updateSelectedNode({ tags: parseTags(e.target.value) })}
                       placeholder="Tags"
                     />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Linked todos</span>
+                        {selectedNode.data.todos.length > 0 && (
+                          <Badge variant="outline">{selectedNode.data.todos.length} linked</Badge>
+                        )}
+                      </div>
+                      {activeTodos.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Create todos to attach them to this node.</p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                          {activeTodos.map((todo) => {
+                            const checked = selectedNode.data.todos.includes(todo.id);
+                            return (
+                              <label
+                                key={todo.id}
+                                className="flex items-center gap-2 rounded-md border border-transparent px-2 py-1 hover:border-border"
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleTodoForSelectedNode(todo.id)}
+                                  aria-label={checked ? 'Unlink todo' : 'Link todo'}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm truncate">{todo.title}</div>
+                                  <div className="text-xs text-muted-foreground">{todo.completed ? 'Completed' : 'Open'}</div>
+                                </div>
+                                {todo.completed && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    Done
+                                  </Badge>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </section>

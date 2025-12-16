@@ -38,6 +38,7 @@ create table workflows (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   data jsonb default '{}'::jsonb,
+  todos text[] default array[]::text[],
   created_at timestamp default now(),
   updated_at timestamp default now(),
   deleted_at timestamp
