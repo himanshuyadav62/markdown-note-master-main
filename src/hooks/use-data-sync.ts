@@ -75,7 +75,7 @@ export function useNotes(): UseNotesResult {
     } else if (dataMode === 'remote') {
       loadRemoteNotes();
     }
-  }, [dataMode, user?.id, hasLoaded]); // Include hasLoaded to prevent multiple calls
+  }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
   // Save notes
   const setNotes = useCallback(
@@ -210,7 +210,7 @@ export function useTodos(): UseTodosResult {
     } else if (dataMode === 'remote') {
       loadRemoteTodos();
     }
-  }, [dataMode, user?.id, hasLoaded]); // Include hasLoaded to prevent multiple calls
+  }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
   // Save todos
   const setTodos = useCallback(
