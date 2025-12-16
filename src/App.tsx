@@ -647,6 +647,8 @@ function App() {
             onNavigateToNote={navigateToNote} 
             notes={allNotes || []} 
             initialGroup={searchParams.get('todoGroup') || undefined}
+            todos={todosData || []}
+            setTodos={setTodos}
           />
         )}
       </div>

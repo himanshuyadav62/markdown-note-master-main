@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useSearchParams } from 'react-router-dom';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useTodos } from '@/hooks/use-data-sync';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,11 +23,12 @@ interface TodoAppProps {
     onNavigateToNote: (noteId: string) => void;
     notes: Note[];
     initialGroup?: string;
+    todos: Todo[];
+    setTodos: (todos: Todo[] | ((prev: Todo[]) => Todo[])) => Promise<void>;
 }
 
-export function TodoApp({ onNavigateToNote, notes, initialGroup }: TodoAppProps) {
+export function TodoApp({ onNavigateToNote, notes, initialGroup, todos, setTodos }: TodoAppProps) {
     const [searchParams, setSearchParams] = useSearchParams();
-    const { todos, setTodos } = useTodos();
     const [groups, setGroups] = useLocalStorage<TodoGroup[]>('todo-groups', []);
     const [newTodoTitle, setNewTodoTitle] = useState('');
     const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);

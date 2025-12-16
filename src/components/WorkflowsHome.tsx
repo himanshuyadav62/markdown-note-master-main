@@ -1,23 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useWorkflows } from '@/hooks/use-data-sync';
 import { SparkleIcon, ShareNetworkIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
-
-export type WorkflowSummary = {
-  id: string;
-  name: string;
-  updatedAt: number;
-};
 
 export function WorkflowsHome() {
   const navigate = useNavigate();
-  const [workflows, setWorkflows] = useLocalStorage<WorkflowSummary[]>('workflows-list', []);
-  const [newName, setNewName] = useLocalStorage<string>('workflows-new-name', '');
+  const { workflows, setWorkflows } = useWorkflows();
+  const [newName, setNewName] = useState('');
 
   const sorted = useMemo(() => [...workflows].sort((a, b) => b.updatedAt - a.updatedAt), [workflows]);
 
@@ -26,16 +20,19 @@ export function WorkflowsHome() {
     if (!name) return;
     const id = crypto.randomUUID();
     const now = Date.now();
-    setWorkflows((arr) => [{ id, name, updatedAt: now }, ...arr]);
+    setWorkflows((arr) => [{
+      id,
+      name,
+      data: null,
+      createdAt: now,
+      updatedAt: now
+    }, ...(arr || [])]);
     setNewName('');
     navigate(`/workflows/${id}`);
   };
 
   const deleteWorkflow = (id: string) => {
-    setWorkflows((arr) => arr.filter((w) => w.id !== id));
-    try {
-      localStorage.removeItem(`workflow:${id}`);
-    } catch {}
+    setWorkflows((arr) => (arr || []).filter((w) => w.id !== id));
   };
 
   return (

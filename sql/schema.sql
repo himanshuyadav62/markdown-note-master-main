@@ -32,6 +32,17 @@ create table todo_groups (
   is_default boolean default false
 );
 
+-- Create workflows table
+create table workflows (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  data jsonb default '{}'::jsonb,
+  created_at timestamp default now(),
+  updated_at timestamp default now(),
+  deleted_at timestamp
+);
+
 -- Create attachments table
 create table attachments (
   id uuid default uuid_generate_v4() primary key,
@@ -66,6 +77,8 @@ create index todos_user_id_idx on todos(user_id);
 create index todos_user_id_deleted_at_idx on todos(user_id, deleted_at);
 create index todo_groups_user_id_idx on todo_groups(user_id);
 create index attachments_note_id_idx on attachments(note_id);
+create index workflows_user_id_idx on workflows(user_id);
+create index workflows_user_id_deleted_at_idx on workflows(user_id, deleted_at);
 
 -- Enable Row Level Security (RLS)
 alter table notes enable row level security;
@@ -74,6 +87,7 @@ alter table todo_groups enable row level security;
 alter table attachments enable row level security;
 alter table note_links enable row level security;
 alter table todo_note_links enable row level security;
+alter table workflows enable row level security;
 
 -- RLS Policies for notes
 create policy "Users can view their own notes"
@@ -200,3 +214,20 @@ create policy "Users can delete todo note links in their todos"
       select 1 from todos where todos.id = todo_note_links.todo_id and todos.user_id = (select auth.uid())
     )
   );
+
+-- RLS Policies for workflows
+create policy "Users can view their own workflows"
+  on workflows for select
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can create workflows"
+  on workflows for insert
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can update their own workflows"
+  on workflows for update
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can delete their own workflows"
+  on workflows for delete
+  using ((select auth.uid()) = user_id);

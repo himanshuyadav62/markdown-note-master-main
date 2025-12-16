@@ -36,3 +36,12 @@ export interface TodoGroup {
   createdAt: number;
   isDefault?: boolean;
 }
+
+export interface Workflow {
+  id: string;
+  name: string;
+  data: any; // The workflow state (nodes, edges, meta)
+  createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useCallback, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabaseClient';
-import { Note, Attachment, Todo, TodoGroup } from '@/lib/types';
+import { Note, Attachment, Todo, TodoGroup, Workflow } from '@/lib/types';
 import { toast } from 'sonner';
 
 type DataMode = 'local' | 'remote';
@@ -267,6 +267,164 @@ export function useTodos(): UseTodosResult {
   return {
     todos,
     setTodos,
+    dataMode,
+    refetch,
+  };
+}
+
+interface UseWorkflowsResult {
+  workflows: Workflow[];
+  setWorkflows: (workflows: Workflow[] | ((prev: Workflow[]) => Workflow[])) => Promise<void>;
+  dataMode: DataMode;
+  refetch: () => Promise<void>;
+}
+
+export function useWorkflows(): UseWorkflowsResult {
+  const { user } = useAuth();
+  const [workflows, setWorkflowsState] = useState<Workflow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const dataMode: DataMode = user ? 'remote' : 'local';
+
+  // Load workflows from localStorage
+  const loadLocalWorkflows = useCallback(async () => {
+    try {
+      const stored = localStorage.getItem('workflows-list');
+      const summaries = stored ? JSON.parse(stored) : [];
+      
+      // Load full workflow data for each summary
+      const fullWorkflows: Workflow[] = summaries.map((summary: any) => {
+        const workflowData = localStorage.getItem(`workflow:${summary.id}`);
+        return {
+          id: summary.id,
+          name: summary.name,
+          data: workflowData ? JSON.parse(workflowData) : null,
+          createdAt: summary.createdAt || summary.updatedAt,
+          updatedAt: summary.updatedAt,
+        };
+      });
+      
+      setWorkflowsState(fullWorkflows);
+    } catch (error) {
+      console.error('Failed to load local workflows:', error);
+      setWorkflowsState([]);
+    }
+    setIsLoading(false);
+    setHasLoaded(true);
+  }, []);
+
+  // Load workflows from Supabase
+  const loadRemoteWorkflows = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      setWorkflowsState(
+        (data || []).map((workflow: any) => ({
+          id: workflow.id,
+          name: workflow.name,
+          data: workflow.data,
+          createdAt: new Date(workflow.created_at).getTime(),
+          updatedAt: new Date(workflow.updated_at).getTime(),
+          deletedAt: workflow.deleted_at
+            ? new Date(workflow.deleted_at).getTime()
+            : undefined,
+        }))
+      );
+    } catch (error) {
+      console.error('Failed to load remote workflows:', error);
+      toast.error('Failed to load workflows from Supabase');
+    } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
+    }
+  }, [user]);
+
+  // Load workflows on mount and when user changes
+  useEffect(() => {
+    // Only load if we haven't already loaded
+    if (hasLoaded) return;
+    
+    if (dataMode === 'local') {
+      loadLocalWorkflows();
+    } else if (dataMode === 'remote') {
+      loadRemoteWorkflows();
+    }
+  }, [user?.id, hasLoaded]);
+
+  // Save workflows
+  const setWorkflows = useCallback(
+    async (
+      workflowsOrUpdater: Workflow[] | ((prev: Workflow[]) => Workflow[])
+    ): Promise<void> => {
+      const nextWorkflows =
+        typeof workflowsOrUpdater === 'function'
+          ? workflowsOrUpdater(workflows)
+          : workflowsOrUpdater;
+
+      setWorkflowsState(nextWorkflows);
+
+      if (dataMode === 'local') {
+        try {
+          // Save summaries list
+          const summaries = nextWorkflows.map(w => ({
+            id: w.id,
+            name: w.name,
+            updatedAt: w.updatedAt,
+            createdAt: w.createdAt
+          }));
+          localStorage.setItem('workflows-list', JSON.stringify(summaries));
+          
+          // Save individual workflow data
+          nextWorkflows.forEach(workflow => {
+            if (workflow.data) {
+              localStorage.setItem(`workflow:${workflow.id}`, JSON.stringify(workflow.data));
+            }
+          });
+        } catch (error) {
+          console.error('Failed to save local workflows:', error);
+          toast.error('Failed to save workflows');
+        }
+      } else if (dataMode === 'remote' && user) {
+        try {
+          for (const workflow of nextWorkflows) {
+            const { error } = await supabase.from('workflows').upsert({
+              id: workflow.id,
+              user_id: user.id,
+              name: workflow.name,
+              data: workflow.data,
+              created_at: new Date(workflow.createdAt).toISOString(),
+              updated_at: new Date(workflow.updatedAt).toISOString(),
+              deleted_at: workflow.deletedAt
+                ? new Date(workflow.deletedAt).toISOString()
+                : null,
+            });
+
+            if (error) throw error;
+          }
+        } catch (error) {
+          console.error('Failed to save remote workflows:', error);
+          toast.error('Failed to save workflows to Supabase');
+        }
+      }
+    },
+    [workflows, dataMode, user]
+  );
+
+  const refetch = useCallback(
+    () => dataMode === 'local' ? loadLocalWorkflows() : loadRemoteWorkflows(),
+    [dataMode, loadLocalWorkflows, loadRemoteWorkflows]
+  );
+
+  return {
+    workflows,
+    setWorkflows,
     dataMode,
     refetch,
   };

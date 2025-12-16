@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useWorkflows } from '@/hooks/use-data-sync';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/use-theme';
 import { toast } from 'sonner';
@@ -277,30 +277,35 @@ export function WorkflowBuilder() {
   const navigate = useNavigate();
   const { workflowId } = useParams<{ workflowId: string }>();
   const { theme, toggleTheme } = useTheme();
+  const { workflows, setWorkflows } = useWorkflows();
 
-  // store multiple workflows: list of summaries and per-workflow state
-  const [workflowList, setWorkflowList] = useLocalStorage<{ id: string; name: string; updatedAt: number }[]>('workflows-list', []);
-  const key = `workflow:${workflowId ?? 'default'}`;
-  const initialFromList = (() => {
-    if (workflowId) {
-      const entry = workflowList.find((w) => w.id === workflowId);
-      if (entry) {
-        return {
-          meta: { title: entry.name, summary: '', globalContext: '', tags: [] },
-          nodes: [],
-          edges: [],
-          lastSaved: Date.now()
-        } as WorkflowState;
-      }
+  // Find current workflow
+  const currentWorkflow = useMemo(() => 
+    workflows.find(w => w.id === workflowId),
+    [workflows, workflowId]
+  );
+
+  const initialState = useMemo(() => {
+    if (currentWorkflow?.data) {
+      return currentWorkflow.data as WorkflowState;
+    }
+    if (currentWorkflow) {
+      return {
+        meta: { title: currentWorkflow.name, summary: '', globalContext: '', tags: [] },
+        nodes: [],
+        edges: [],
+        lastSaved: Date.now()
+      } as WorkflowState;
     }
     return defaultState;
-  })();
-  const [workflow, setWorkflow] = useLocalStorage<WorkflowState>(key, initialFromList);
-  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeData>(workflow.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowEdgeData>(workflow.edges);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(workflow.nodes[0]?.id ?? null);
+  }, [currentWorkflow]);
+
+  const [workflowState, setWorkflowState] = useState<WorkflowState>(initialState);
+  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeData>(initialState.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowEdgeData>(initialState.edges);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialState.nodes[0]?.id ?? null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [meta, setMeta] = useState<WorkflowMeta>(workflow.meta);
+  const [meta, setMeta] = useState<WorkflowMeta>(initialState.meta);
   const [newNodeDraft, setNewNodeDraft] = useState({
     title: 'New node',
     context: '',
@@ -324,18 +329,20 @@ export function WorkflowBuilder() {
   // Debug: log edges to verify creation and rendering state
   useEffect(() => {
     // eslint-disable-next-line no-console
-    console.log('Workflow edges', edges);
-  }, [edges]);
-
-  useEffect(() => {
-    const now = Date.now();
-    setWorkflow((prev) => ({ ...prev, meta, nodes, edges, lastSaved: now }));
+    const newState = { meta, nodes, edges, lastSaved: now };
+    setWorkflowState(newState);
+    
     if (workflowId) {
-      const name = meta.title || 'Untitled Workflow';
-      setWorkflowList((list) => {
-        const exists = list.find((w) => w.id === workflowId);
-        if (exists) {
-          return list.map((w) => (w.id === workflowId ? { ...w, name, updatedAt: now } : w));
+      setWorkflows((list) => {
+        const updated = (list || []).map((w) => 
+          w.id === workflowId 
+            ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
+            : w
+        );
+        return updated;
+      });
+    }
+  }, [meta, nodes, edges, workflowId, setWorkflowsd === workflowId ? { ...w, name, updatedAt: now } : w));
         }
         return [{ id: workflowId, name, updatedAt: now }, ...list];
       });
