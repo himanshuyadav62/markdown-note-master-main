@@ -23,7 +23,8 @@ import { useNotes, useTodos } from '@/hooks/use-data-sync';
 
 function App() {
   const { user, loading: authLoading, actionLoading, isSkipped, signInWithGoogle, signOut, skipLogin } = useAuth();
-  const { notes: notesData, setNotes } = useNotes();
+  const { notes: notesData, setNotes, refetch: refetchNotes } = useNotes();
+  const { todos: todosData, setTodos, refetch: refetchTodos } = useTodos();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -46,6 +47,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const isResizing = useRef(false);
   const isResizingAttachment = useRef(false);
+  const lastTabRef = useRef<'notes' | 'todos'>('notes');
 
   // Sync URL with selected note
   useEffect(() => {
@@ -64,6 +66,18 @@ function App() {
       setActiveTab('notes');
     }
   }, [location.pathname]);
+
+  // Refetch data when switching tabs
+  useEffect(() => {
+    if (activeTab === 'notes' && lastTabRef.current === 'todos') {
+      // Switched to notes tab - refetch notes
+      refetchNotes();
+    } else if (activeTab === 'todos' && lastTabRef.current === 'notes') {
+      // Switched to todos tab - refetch todos
+      refetchTodos();
+    }
+    lastTabRef.current = activeTab;
+  }, [activeTab, refetchNotes, refetchTodos]);
 
   // Navigate when selecting a note
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {

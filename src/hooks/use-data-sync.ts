@@ -10,12 +10,14 @@ interface UseNotesResult {
   notes: Note[];
   setNotes: (notes: Note[] | ((prev: Note[]) => Note[])) => Promise<void>;
   dataMode: DataMode;
+  refetch: () => Promise<void>;
 }
 
 export function useNotes(): UseNotesResult {
   const { user } = useAuth();
   const [notes, setNotesState] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const dataMode: DataMode = user ? 'remote' : 'local';
 
@@ -29,6 +31,7 @@ export function useNotes(): UseNotesResult {
       setNotesState([]);
     }
     setIsLoading(false);
+    setHasLoaded(true);
   }, []);
 
   // Load notes from Supabase
@@ -58,17 +61,21 @@ export function useNotes(): UseNotesResult {
       toast.error('Failed to load notes from Supabase');
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }, [user]);
 
   // Load notes on mount and when user changes
   useEffect(() => {
+    // Only load if we haven't already loaded
+    if (hasLoaded) return;
+    
     if (dataMode === 'local') {
       loadLocalNotes();
     } else if (dataMode === 'remote') {
       loadRemoteNotes();
     }
-  }, [dataMode, loadLocalNotes, loadRemoteNotes]);
+  }, [dataMode, user?.id]); // Only depend on user.id, not the functions
 
   // Save notes
   const setNotes = useCallback(
@@ -121,6 +128,7 @@ export function useNotes(): UseNotesResult {
     notes,
     setNotes,
     dataMode,
+    refetch: dataMode === 'local' ? loadLocalNotes : loadRemoteNotes,
   };
 }
 
@@ -128,12 +136,14 @@ interface UseTodosResult {
   todos: Todo[];
   setTodos: (todos: Todo[] | ((prev: Todo[]) => Todo[])) => Promise<void>;
   dataMode: DataMode;
+  refetch: () => Promise<void>;
 }
 
 export function useTodos(): UseTodosResult {
   const { user } = useAuth();
   const [todos, setTodosState] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const dataMode: DataMode = user ? 'remote' : 'local';
 
@@ -147,6 +157,7 @@ export function useTodos(): UseTodosResult {
       setTodosState([]);
     }
     setIsLoading(false);
+    setHasLoaded(true);
   }, []);
 
   // Load todos from Supabase
@@ -180,17 +191,21 @@ export function useTodos(): UseTodosResult {
       toast.error('Failed to load todos from Supabase');
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }, [user]);
 
   // Load todos on mount and when user changes
   useEffect(() => {
+    // Only load if we haven't already loaded
+    if (hasLoaded) return;
+    
     if (dataMode === 'local') {
       loadLocalTodos();
     } else if (dataMode === 'remote') {
       loadRemoteTodos();
     }
-  }, [dataMode, loadLocalTodos, loadRemoteTodos]);
+  }, [dataMode, user?.id]); // Only depend on user.id, not the functions
 
   // Save todos
   const setTodos = useCallback(
@@ -243,5 +258,6 @@ export function useTodos(): UseTodosResult {
     todos,
     setTodos,
     dataMode,
+    refetch: dataMode === 'local' ? loadLocalTodos : loadRemoteTodos,
   };
 }
