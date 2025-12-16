@@ -289,15 +289,13 @@ export function WorkflowBuilder() {
     if (currentWorkflow?.data) {
       return currentWorkflow.data as WorkflowState;
     }
-    if (currentWorkflow) {
-      return {
-        meta: { title: currentWorkflow.name, summary: '', globalContext: '', tags: [] },
-        nodes: [],
-        edges: [],
-        lastSaved: Date.now()
-      } as WorkflowState;
-    }
-    return defaultState;
+    // Return empty workflow for new workflows
+    return {
+      meta: { title: currentWorkflow?.name || 'Untitled Workflow', summary: '', globalContext: '', tags: [] },
+      nodes: [],
+      edges: [],
+      lastSaved: Date.now()
+    } as WorkflowState;
   }, [currentWorkflow]);
 
   const [workflowState, setWorkflowState] = useState<WorkflowState>(initialState);
@@ -306,6 +304,7 @@ export function WorkflowBuilder() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialState.nodes[0]?.id ?? null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [meta, setMeta] = useState<WorkflowMeta>(initialState.meta);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [newNodeDraft, setNewNodeDraft] = useState({
     title: 'New node',
     context: '',
@@ -326,23 +325,42 @@ export function WorkflowBuilder() {
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
+  const defaultEdgeOptions = useMemo(() => ({
+    style: { stroke: '#6366f1', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1', width: 18, height: 18 }
+  }), []);
+
+  const handleInit = useCallback((instance: ReactFlowInstance) => {
+    setReactFlowInstance((prev) => prev ?? instance);
+    // Mark as initialized after React Flow is ready
+    setIsInitialized(true);
+  }, []);
+
   // Persist workflow state and update last saved timestamp
   useEffect(() => {
+    // Only persist after component is initialized to prevent loops on mount
+    if (!isInitialized) return;
+    
     const now = Date.now();
     const newState = { meta, nodes, edges, lastSaved: now };
     setWorkflowState(newState);
 
-    if (workflowId) {
-      setWorkflows((list) => {
-        const updated = (list || []).map((w) =>
-          w.id === workflowId
-            ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
-            : w
-        );
-        return updated;
-      });
+    if (workflowId && currentWorkflow) {
+      // Use a timeout to debounce saves and prevent infinite loops
+      const timeoutId = setTimeout(() => {
+        setWorkflows((list) => {
+          const updated = (list || []).map((w) =>
+            w.id === workflowId
+              ? { ...w, name: meta.title || 'Untitled Workflow', data: newState, updatedAt: now }
+              : w
+          );
+          return updated;
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [meta, nodes, edges, workflowId, setWorkflows]);
+  }, [meta, nodes, edges, workflowId, currentWorkflow, setWorkflows, isInitialized]);
 
   useEffect(() => {
     if (!selectedNode && nodes.length > 0) {
@@ -733,11 +751,8 @@ export function WorkflowBuilder() {
             nodeTypes={nodeTypes}
             fitView
             connectionMode={ConnectionMode.Loose}
-            defaultEdgeOptions={{
-              style: { stroke: '#6366f1', strokeWidth: 2 },
-              markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1', width: 18, height: 18 }
-            }}
-            onInit={setReactFlowInstance}
+            defaultEdgeOptions={defaultEdgeOptions}
+            onInit={handleInit}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             proOptions={{ hideAttribution: true }}
             className=""
