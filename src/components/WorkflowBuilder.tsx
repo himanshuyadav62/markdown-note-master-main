@@ -19,7 +19,7 @@ import { Menu, Item, useContextMenu, ItemParams } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
 import { Position } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { ArrowLineRightIcon, FlowArrowIcon, GraphIcon, ListPlusIcon, MoonIcon, ShareNetworkIcon, SparkleIcon, SunIcon, TargetIcon, TreeStructureIcon, GoogleLogo, SignOut } from '@phosphor-icons/react';
+import { ArrowLineRightIcon, FlowArrowIcon, GraphIcon, ListPlusIcon, MoonIcon, ShareNetworkIcon, TargetIcon, TreeStructureIcon, GoogleLogoIcon, SignOutIcon, SunIcon } from '@phosphor-icons/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -600,38 +600,38 @@ export function WorkflowBuilder() {
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               {theme === 'light' ? <MoonIcon size={18} aria-hidden="true" /> : <SunIcon size={18} aria-hidden="true" />}
-                        {user?.email && (
-                          <div className="hidden sm:block text-sm text-muted-foreground px-2">
-                            {user.email}
-                          </div>
-                        )}
-                        {user ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={signOut}
-                            disabled={actionLoading}
-                          >
-                            <SignOut size={18} className="mr-1" />
-                            Sign out
-                          </Button>
-                        ) : isSkipped ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={signInWithGoogle}
-                            disabled={actionLoading}
-                          >
-                            <GoogleLogo size={18} className="mr-1" />
-                            Sign in
-                          </Button>
-                        ) : null}
             </Button>
+            {user?.email && (
+              <div className="hidden sm:block text-sm text-muted-foreground px-2">
+                {user.email}
+              </div>
+            )}
+            {user ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={signOut}
+                disabled={actionLoading}
+              >
+                <SignOutIcon size={18} className="mr-1" />
+                Sign out
+              </Button>
+            ) : isSkipped ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={signInWithGoogle}
+                disabled={actionLoading}
+              >
+                <GoogleLogoIcon size={18} className="mr-1" />
+                Sign in
+              </Button>
+            ) : null}
           </div>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="w-full sm:w-96 border-r border-border bg-card/70 backdrop-blur-md">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-6">
@@ -882,7 +882,7 @@ export function WorkflowBuilder() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1 relative bg-gradient-to-br from-background via-background to-accent/5" style={{ width: '100%', height: '100%' }}>
+        <div className="flex-1 w-full h-full min-h-0 bg-gradient-to-br from-background via-background to-accent/5">
           <ReactFlow
             nodes={nodes}
             edges={edges}
