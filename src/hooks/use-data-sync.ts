@@ -82,6 +82,7 @@ export function useNotes(): UseNotesResult {
     async (
       notesOrUpdater: Note[] | ((prev: Note[]) => Note[])
     ): Promise<void> => {
+      const prevNotes = notes;
       const nextNotes =
         typeof notesOrUpdater === 'function'
           ? notesOrUpdater(notes)
@@ -97,21 +98,48 @@ export function useNotes(): UseNotesResult {
           toast.error('Failed to save notes');
         }
       } else if (dataMode === 'remote' && user) {
-        // Sync with Supabase
+        // Sync with Supabase - handle both updates and deletions
         try {
-          // For simplicity, we'll do individual upserts
-          for (const note of nextNotes) {
-            const { error } = await supabase.from('notes').upsert({
-              id: note.id,
-              user_id: user.id,
-              title: note.title,
-              content: note.content,
-              created_at: new Date(note.createdAt).toISOString(),
-              updated_at: new Date(note.updatedAt).toISOString(),
-              deleted_at: note.deletedAt
-                ? new Date(note.deletedAt).toISOString()
-                : null,
-            });
+          // Find notes that changed
+          const changedNotes = nextNotes.filter(nextNote => {
+            const prevNote = prevNotes.find(n => n.id === nextNote.id);
+            return !prevNote || 
+                   prevNote.title !== nextNote.title || 
+                   prevNote.content !== nextNote.content ||
+                   prevNote.deletedAt !== nextNote.deletedAt;
+          });
+
+          // Find notes that were deleted (exist in prev but not in next)
+          const deletedNoteIds = prevNotes
+            .filter(prevNote => !nextNotes.find(n => n.id === prevNote.id))
+            .map(note => note.id);
+
+          // Only upsert changed notes
+          if (changedNotes.length > 0) {
+            const { error } = await supabase.from('notes').upsert(
+              changedNotes.map(note => ({
+                id: note.id,
+                user_id: user.id,
+                title: note.title,
+                content: note.content,
+                created_at: new Date(note.createdAt).toISOString(),
+                updated_at: new Date(note.updatedAt).toISOString(),
+                deleted_at: note.deletedAt
+                  ? new Date(note.deletedAt).toISOString()
+                  : null,
+              }))
+            );
+
+            if (error) throw error;
+          }
+
+          // Delete removed notes from database
+          if (deletedNoteIds.length > 0) {
+            const { error } = await supabase
+              .from('notes')
+              .delete()
+              .in('id', deletedNoteIds)
+              .eq('user_id', user.id);
 
             if (error) throw error;
           }

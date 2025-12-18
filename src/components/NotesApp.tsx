@@ -39,6 +39,8 @@ export function NotesApp() {
   const [attachmentHeight, setAttachmentHeight] = useState(240);
   const isResizing = useRef(false);
   const isResizingAttachment = useRef(false);
+  const contentDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Sync URL with selected note
   useEffect(() => {
@@ -60,8 +62,8 @@ export function NotesApp() {
   }, [navigate]);
 
   const selectedNote = useMemo(
-    () => notes?.find(note => note.id === selectedNoteId),
-    [notes, selectedNoteId]
+    () => allNotes?.find(note => note.id === selectedNoteId),
+    [allNotes, selectedNoteId]
   );
 
   useEffect(() => {
@@ -198,18 +200,48 @@ export function NotesApp() {
 
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
-    if (selectedNoteId) {
-      updateNote({ content });
+    
+    // Clear existing timer
+    if (contentDebounceTimer.current) {
+      clearTimeout(contentDebounceTimer.current);
     }
-  }, [selectedNoteId, updateNote]);
+    
+    // Set new timer to update after 3 seconds
+    if (selectedNoteId) {
+      contentDebounceTimer.current = setTimeout(() => {
+        setAllNotes(current => 
+          (current || []).map(note => 
+            note.id === selectedNoteId 
+              ? { ...note, content, updatedAt: Date.now() }
+              : note
+          )
+        );
+      }, 3000);
+    }
+  }, [selectedNoteId, setAllNotes]);
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
     setEditTitle(title);
-    if (selectedNoteId) {
-      updateNote({ title });
+    
+    // Clear existing timer
+    if (titleDebounceTimer.current) {
+      clearTimeout(titleDebounceTimer.current);
     }
-  }, [selectedNoteId, updateNote]);
+    
+    // Set new timer to update after 3 seconds
+    if (selectedNoteId) {
+      titleDebounceTimer.current = setTimeout(() => {
+        setAllNotes(current => 
+          (current || []).map(note => 
+            note.id === selectedNoteId 
+              ? { ...note, title, updatedAt: Date.now() }
+              : note
+          )
+        );
+      }, 3000);
+    }
+  }, [selectedNoteId, setAllNotes]);
 
   const handleSelectNote = (note: Note) => {
     handleSelectNoteWithNavigation(note);
@@ -254,6 +286,18 @@ export function NotesApp() {
       window.removeEventListener('mouseup', stopResizing);
     };
   }, [resize, stopResizing]);
+
+  // Cleanup debounce timers on unmount or when note changes
+  useEffect(() => {
+    return () => {
+      if (contentDebounceTimer.current) {
+        clearTimeout(contentDebounceTimer.current);
+      }
+      if (titleDebounceTimer.current) {
+        clearTimeout(titleDebounceTimer.current);
+      }
+    };
+  }, [selectedNoteId]);
 
   return (
     <div className="flex-1 flex overflow-hidden w-full">

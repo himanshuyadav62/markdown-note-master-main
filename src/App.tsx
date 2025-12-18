@@ -48,6 +48,8 @@ function App() {
   const isResizing = useRef(false);
   const isResizingAttachment = useRef(false);
   const lastTabRef = useRef<'notes' | 'todos'>('notes');
+  const contentDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Sync URL with selected note
   useEffect(() => {
@@ -236,7 +238,14 @@ function App() {
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
     if (selectedNoteId) {
-      updateNote({ content });
+      // Clear existing timer
+      if (contentDebounceTimer.current) {
+        clearTimeout(contentDebounceTimer.current);
+      }
+      // Set new timer to update after 3 seconds
+      contentDebounceTimer.current = setTimeout(() => {
+        updateNote({ content });
+      }, 3000);
     }
   }, [selectedNoteId, updateNote]);
 
@@ -244,7 +253,14 @@ function App() {
     const title = e.target.value;
     setEditTitle(title);
     if (selectedNoteId) {
-      updateNote({ title });
+      // Clear existing timer
+      if (titleDebounceTimer.current) {
+        clearTimeout(titleDebounceTimer.current);
+      }
+      // Set new timer to update after 3 seconds
+      titleDebounceTimer.current = setTimeout(() => {
+        updateNote({ title });
+      }, 3000);
     }
   }, [selectedNoteId, updateNote]);
 
@@ -305,6 +321,18 @@ function App() {
       window.removeEventListener('mouseup', stopResizing);
     };
   }, [resize, stopResizing]);
+
+  // Cleanup debounce timers on unmount or when note changes
+  useEffect(() => {
+    return () => {
+      if (contentDebounceTimer.current) {
+        clearTimeout(contentDebounceTimer.current);
+      }
+      if (titleDebounceTimer.current) {
+        clearTimeout(titleDebounceTimer.current);
+      }
+    };
+  }, [selectedNoteId]);
 
   if (authLoading) {
     return (
@@ -644,11 +672,7 @@ function App() {
           </main>
         ) : (
           <TodoApp 
-            onNavigateToNote={navigateToNote} 
-            notes={allNotes || []} 
-            initialGroup={searchParams.get('todoGroup') || undefined}
-            todos={todosData || []}
-            setTodos={setTodos}
+            onNavigateToNote={navigateToNote}
           />
         )}
       </div>
