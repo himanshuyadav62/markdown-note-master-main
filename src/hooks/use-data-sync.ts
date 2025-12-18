@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabaseClient';
-import { Note, Attachment, Todo, TodoGroup, Workflow } from '@/lib/types';
+import { Note, Todo, TodoGroup, Workflow } from '@/lib/types';
 import { toast } from 'sonner';
 
 type DataMode = 'local' | 'remote';

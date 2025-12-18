@@ -14,20 +14,20 @@ import { NoteLinkDialog } from '@/components/NoteLinkDialog';
 import { LinkedNotesView } from '@/components/LinkedNotesView';
 import { NotePreviewPanel } from '@/components/NotePreviewPanel';
 import { Todo, Note, TodoGroup } from '@/lib/types';
-import { useTodoGroups } from '@/hooks/use-data-sync';
+import { useTodoGroups, useNotes, useTodos } from '@/hooks/use-data-sync';
+import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
 interface TodoAppProps {
     onNavigateToNote: (noteId: string) => void;
-    notes: Note[];
-    initialGroup?: string;
-    todos: Todo[];
-    setTodos: (todos: Todo[] | ((prev: Todo[]) => Todo[])) => Promise<void>;
 }
 
-export function TodoApp({ onNavigateToNote, notes, initialGroup, todos, setTodos }: TodoAppProps) {
+export function TodoApp({ onNavigateToNote }: TodoAppProps) {
+    const { user } = useAuth();
+    const { notes: notesData } = useNotes();
+    const { todos: todosData, setTodos } = useTodos();
     const [searchParams, setSearchParams] = useSearchParams();
     const { groups, setGroups } = useTodoGroups();
     const [newTodoTitle, setNewTodoTitle] = useState('');
@@ -51,6 +51,10 @@ export function TodoApp({ onNavigateToNote, notes, initialGroup, todos, setTodos
     const isResizingLinkedNotes = useRef(false);
     const isResizingPreview = useRef(false);
     const isSettingFromUrl = useRef(false);
+
+    const notes = notesData || [];
+    const todos = todosData || [];
+    const initialGroup = searchParams.get('todoGroup') || undefined;
 
     useEffect(() => {
         if (todos && todos.length > 0) {

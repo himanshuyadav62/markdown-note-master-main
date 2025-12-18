@@ -425,12 +425,6 @@ export function WorkflowBuilder() {
     owner: '',
     tags: ''
   });
-  const [edgeDraft, setEdgeDraft] = useState({
-    source: '',
-    target: '',
-    label: 'relates to',
-    directed: true
-  });
   const [connectConfig, setConnectConfig] = useState({ directed: true, label: 'flows to' });
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const { show } = useContextMenu<{ edgeId: string }>({ id: 'edge-menu' });
@@ -533,23 +527,6 @@ export function WorkflowBuilder() {
     }
   }, [nodes, selectedNode]);
 
-  // Update edge draft source/target when nodes change and current selection is invalid
-  useEffect(() => {
-    if (nodes.length >= 2) {
-      setEdgeDraft((d) => ({
-        ...d,
-        source: d.source && nodes.some((n) => n.id === d.source) ? d.source : nodes[0].id,
-        target: d.target && nodes.some((n) => n.id === d.target) ? d.target : nodes[1].id
-      }));
-    } else if (nodes.length === 1) {
-      setEdgeDraft((d) => ({
-        ...d,
-        source: nodes[0].id,
-        target: ''
-      }));
-    }
-  }, [nodes]);
-
   const handleConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
@@ -581,26 +558,6 @@ export function WorkflowBuilder() {
     show({ event, props: { edgeId: edge.id } });
   }, [show]);
 
-  const addManualEdge = useCallback(() => {
-    if (!edgeDraft.source || !edgeDraft.target || edgeDraft.source === edgeDraft.target) {
-      toast.error('Choose two different nodes to connect.');
-      return;
-    }
-
-    const edge = edgeWithDirection(
-      {
-        source: edgeDraft.source,
-        target: edgeDraft.target,
-        sourceHandle: 'bottom',
-        targetHandle: 'top'
-      },
-      edgeDraft.directed,
-      edgeDraft.label || undefined
-    );
-    setEdges((eds) => [...eds, edge]);
-    toast.success('Edge added');
-  }, [edgeDraft.directed, edgeDraft.label, edgeDraft.source, edgeDraft.target, setEdges]);
-
   const addNode = useCallback(async () => {
     if (!newNodeDraft.title.trim()) {
       toast.error('Add a title before creating a node.');
@@ -630,7 +587,6 @@ export function WorkflowBuilder() {
     const updatedNodes = [...nodes, node];
     setNodes(updatedNodes);
     setSelectedNodeId(node.id);
-    setEdgeDraft((draft) => ({ ...draft, source: node.id }));
     setNewNodeDraft({ title: 'New node', context: '', status: 'idea', color: '#c7d2fe', owner: '', tags: '' });
     toast.success('Node created');
 
@@ -1004,71 +960,6 @@ export function WorkflowBuilder() {
                   </div>
                 )}
               </section>
-
-              {nodes.length >= 2 && (
-                <section className="space-y-3 border rounded-lg border-border bg-background/60 p-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <ShareNetworkIcon size={16} />
-                    Create edge
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">From</label>
-                      <Select
-                        value={edgeDraft.source}
-                        onValueChange={(value) => setEdgeDraft((d) => ({ ...d, source: value }))}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Source" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {nodes.map((node) => (
-                            <SelectItem key={node.id} value={node.id}>
-                              {node.data.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">To</label>
-                      <Select
-                        value={edgeDraft.target}
-                        onValueChange={(value) => setEdgeDraft((d) => ({ ...d, target: value }))}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Target" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {nodes.map((node) => (
-                            <SelectItem key={node.id} value={node.id}>
-                              {node.data.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Input
-                    value={edgeDraft.label}
-                    onChange={(e) => setEdgeDraft((d) => ({ ...d, label: e.target.value }))}
-                    placeholder="Edge label (optional)"
-                  />
-                  <div className="flex items-center gap-2 text-xs">
-                    <Switch
-                      checked={edgeDraft.directed}
-                      onCheckedChange={(checked) => setEdgeDraft((d) => ({ ...d, directed: checked }))}
-                    />
-                    <span className="text-muted-foreground">
-                      {edgeDraft.directed ? 'Directed (arrow)' : 'Undirected (both arrows)'}
-                    </span>
-                  </div>
-                  <Button onClick={addManualEdge} className="w-full bg-accent hover:bg-accent/90">
-                    <ShareNetworkIcon size={16} className="mr-1" />
-                    Create edge
-                  </Button>
-                </section>
-              )}
             </div>
           </ScrollArea>
         </div>

@@ -1,18 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/providers/AuthProvider';
-import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useWorkflows } from '@/hooks/use-data-sync';
-import { SparkleIcon, ShareNetworkIcon, PlusIcon, TrashIcon, MoonIcon, SunIcon, GoogleLogo, SignOut } from '@phosphor-icons/react';
+import { SparkleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 
 export function WorkflowsHome() {
-    const { user, actionLoading, isSkipped, signInWithGoogle, signOut } = useAuth();
-    const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { workflows, setWorkflows, deleteWorkflow: deleteWorkflowRemote } = useWorkflows();
   const [newName, setNewName] = useState('');
@@ -41,74 +36,22 @@ export function WorkflowsHome() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="gap-1">
-              <ShareNetworkIcon size={16} />
-              Workflows
-            </Badge>
-            <span className="text-sm text-muted-foreground hidden md:inline">Create and manage your workflow graphs.</span>
-          </div>
-          <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={toggleTheme}
-                          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-                          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-                        >
-                          {theme === 'light' ? <MoonIcon size={20} aria-hidden="true" /> : <SunIcon size={20} aria-hidden="true" />}
-                        </Button>
-                        {user?.email && (
-                          <div className="hidden sm:block text-sm text-muted-foreground px-2">
-                            {user.email}
-                          </div>
-                        )}
-                        {user ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={signOut}
-                            disabled={actionLoading}
-                          >
-                            <SignOut size={18} className="mr-1" />
-                            Sign out
-                          </Button>
-                        ) : isSkipped ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={signInWithGoogle}
-                            disabled={actionLoading}
-                          >
-                            <GoogleLogo size={18} className="mr-1" />
-                            Sign in
-                          </Button>
-                        ) : null}
-            <Button variant="outline" size="sm" onClick={() => navigate('/notes')}>Notes</Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/todos')}>Todos</Button>
-          </div>
+    <div className="flex-1 flex flex-col overflow-hidden w-full">
+      <div className="border-b border-border px-6 py-4 bg-card/30 shrink-0">
+        <div className="flex items-center gap-2">
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Workflow name"
+            className="max-w-sm"
+          />
+          <Button onClick={createWorkflow} className="bg-accent hover:bg-accent/90">
+            <PlusIcon size={16} className="mr-1" />
+            Create
+          </Button>
         </div>
-      </header>
-
-      <div className="flex-1 grid grid-rows-[auto_1fr]">
-        <div className="border-b border-border px-6 py-4 bg-card/30">
-          <div className="flex items-center gap-2">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Workflow name"
-              className="max-w-sm"
-            />
-            <Button onClick={createWorkflow} className="bg-accent hover:bg-accent/90">
-              <PlusIcon size={16} className="mr-1" />
-              Create
-            </Button>
-          </div>
-        </div>
-        <ScrollArea className="h-full">
+      </div>
+      <ScrollArea className="flex-1">
           <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sorted.length === 0 ? (
               <div className="col-span-full text-center py-16">
@@ -136,7 +79,6 @@ export function WorkflowsHome() {
             )}
           </div>
         </ScrollArea>
-      </div>
     </div>
   );
 }
