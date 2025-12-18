@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon } from '@phosphor-icons/react';
+import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon, DownloadSimple, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { TodoCard } from '@/components/TodoCard';
 import { NoteLinkDialog } from '@/components/NoteLinkDialog';
 import { LinkedNotesView } from '@/components/LinkedNotesView';
@@ -49,6 +49,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     const [linkedNotesWidth, setLinkedNotesWidth] = useState(384);
     const [previewPanelWidth, setPreviewPanelWidth] = useState(400);
     const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const isResizingLinkedNotes = useRef(false);
     const isResizingPreview = useRef(false);
     const isSettingFromUrl = useRef(false);
@@ -526,12 +527,92 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         }
     };
 
+    const downloadTodos = useCallback(() => {
+        let todosToExport: Todo[] = [];
+        let filename = 'todos.txt';
+
+        // Determine which todos to export based on active tab
+        if (activeTabValue === 'all') {
+            todosToExport = allTodos;
+            filename = 'all-todos.txt';
+        } else if (activeTabValue === 'active') {
+            todosToExport = incompleteTodos;
+            filename = 'active-todos.txt';
+        } else if (activeTabValue === 'completed') {
+            todosToExport = completedTodos;
+            filename = 'completed-todos.txt';
+        } else {
+            // Custom group
+            todosToExport = getTodosForGroup(activeTabValue);
+            const group = customGroups.find(g => g.id === activeTabValue);
+            filename = group ? `${group.name.toLowerCase().replace(/\s+/g, '-')}-todos.txt` : 'group-todos.txt';
+        }
+
+        if (todosToExport.length === 0) {
+            toast.error('No todos to export');
+            return;
+        }
+
+        // Format todos as text
+        let content = `Todo List Export\n`;
+        content += `Generated: ${new Date().toLocaleString()}\n`;
+        content += `Total: ${todosToExport.length}\n`;
+        content += `\n${'='.repeat(60)}\n\n`;
+
+        todosToExport.forEach((todo, index) => {
+            content += `${index + 1}. ${todo.completed ? '[✓]' : '[ ]'} ${todo.title}\n`;
+            
+            if (todo.tags && todo.tags.length > 0) {
+                content += `   Tags: ${todo.tags.map(t => '#' + t).join(', ')}\n`;
+            }
+            
+            if (todo.groupIds && todo.groupIds.length > 0) {
+                const groupNames = todo.groupIds
+                    .map(gId => customGroups.find(g => g.id === gId)?.name)
+                    .filter(Boolean);
+                if (groupNames.length > 0) {
+                    content += `   Groups: ${groupNames.join(', ')}\n`;
+                }
+            }
+            
+            if (todo.linkedNoteIds && todo.linkedNoteIds.length > 0) {
+                content += `   Linked Notes: ${todo.linkedNoteIds.length}\n`;
+            }
+            
+            content += `   Created: ${new Date(todo.createdAt).toLocaleString()}\n`;
+            content += `\n`;
+        });
+
+        // Create and download file
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`Exported ${todosToExport.length} todo(s) to ${filename}`);
+    }, [activeTabValue, allTodos, incompleteTodos, completedTodos, getTodosForGroup, customGroups]);
+
     return (
-        <div className="flex-1 flex flex-col bg-background overflow-hidden w-full">
+        <div className={`flex flex-col bg-background overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'flex-1 w-full'}`}>
+            {!isFullscreen && (
             <header className="border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
                 <div className="px-6 py-3 flex items-center justify-between">
                     <h1 className="text-xl font-bold text-foreground">Todo List</h1>
                     <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={downloadTodos}
+                            title="Download current todos as text file"
+                        >
+                            <DownloadSimple size={18} className="mr-1" />
+                            Export
+                        </Button>
                         <Button
                             variant="outline"
                             size="sm"
@@ -625,9 +706,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                     </div>
                 </div>
             </header>
+            )}
 
             <div className="flex-1 flex overflow-hidden w-full">
                 <div className="flex-1 flex flex-col min-w-0">
+                    {!isFullscreen && (
                     <div className="p-4 border-b border-border shrink-0">
                         <div className="flex gap-2">
                             <Input
@@ -643,8 +726,10 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                             </Button>
                         </div>
                     </div>
+                    )}
 
-                    <Tabs value={activeTabValue} onValueChange={setActiveTabValue} className="flex-1 flex flex-col overflow-hidden">
+                    <Tabs value={activeTabValue} onValueChange={setActiveTabValue} className="flex-1 flex flex-col overflow-hidden relative">
+                        {!isFullscreen && (
                         <div className="px-6 pt-3 shrink-0">
                             <ScrollArea className="w-full whitespace-nowrap">
                                 <TabsList>
@@ -672,8 +757,9 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                 </TabsList>
                             </ScrollArea>
                         </div>
+                        )}
 
-                        {allTags.length > 0 && (
+                        {!isFullscreen && allTags.length > 0 && (
                             <div className="px-6 py-2 border-b border-border shrink-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-xs text-muted-foreground">Filter by tag:</span>
@@ -698,7 +784,17 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                             </div>
                         )}
 
-                        <TabsContent value="all" className="flex-1 mt-0 overflow-hidden">
+                        <TabsContent value="all" className="flex-1 mt-0 overflow-hidden relative">
+                            {/* Floating fullscreen button */}
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setIsFullscreen(!isFullscreen)}
+                                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                className="absolute top-2 right-4 z-50 h-10 w-10 rounded-full shadow-lg bg-card/95 backdrop-blur-sm hover:bg-card"
+                            >
+                                {isFullscreen ? <ArrowsIn size={20} /> : <ArrowsOut size={20} />}
+                            </Button>
                             <ScrollArea className="h-full">
                                 <div className="px-6 py-4 space-y-4">
                                     {allTodos.length === 0 ? (
