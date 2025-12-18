@@ -427,6 +427,8 @@ export function WorkflowBuilder() {
   });
   const [connectConfig, setConnectConfig] = useState({ directed: true, label: 'flows to' });
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(384);
+  const isResizingSidebar = useRef(false);
   const { show } = useContextMenu<{ edgeId: string }>({ id: 'edge-menu' });
   const lastSavedStateRef = useRef<string>('');
   const activeTodos = useMemo(() => (todos || []).filter((t) => !t.deletedAt), [todos]);
@@ -653,6 +655,32 @@ export function WorkflowBuilder() {
     [selectedNodeId, setNodes]
   );
 
+  const startResizingSidebar = useCallback(() => {
+    isResizingSidebar.current = true;
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizingSidebar.current = false;
+  }, []);
+
+  const resizeSidebar = useCallback((e: MouseEvent) => {
+    if (isResizingSidebar.current) {
+      const newWidth = e.clientX;
+      if (newWidth >= 0 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resizeSidebar);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resizeSidebar);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resizeSidebar, stopResizing]);
+
 
   // Show 404 if workflow not found
   if (workflowNotFound && !isLoadingWorkflow) {
@@ -780,7 +808,7 @@ export function WorkflowBuilder() {
       </header>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="w-full sm:w-96 border-r border-border bg-card/70 backdrop-blur-md">
+        <div className="border-r border-border bg-card/70 backdrop-blur-md" style={{ width: `${sidebarWidth}px` }}>
           <ScrollArea className="h-full">
             <div className="p-4 space-y-6">
               <section className="space-y-3">
@@ -963,7 +991,10 @@ export function WorkflowBuilder() {
             </div>
           </ScrollArea>
         </div>
-
+        <div
+          className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors shrink-0"
+          onMouseDown={startResizingSidebar}
+        />
         <div className="flex-1 w-full h-full min-h-0 bg-gradient-to-br from-background via-background to-accent/5">
           <ReactFlow
             nodes={nodes}

@@ -231,7 +231,7 @@ export function NotesApp() {
   const resize = useCallback((e: MouseEvent) => {
     if (isResizing.current) {
       const newWidth = e.clientX;
-      if (newWidth >= 250 && newWidth <= 600) {
+      if (newWidth >= 0 && newWidth <= 600) {
         setSidebarWidth(newWidth);
       }
     } else if (isResizingAttachment.current) {
