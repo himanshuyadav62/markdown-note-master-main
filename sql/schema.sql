@@ -18,6 +18,7 @@ create table todos (
   created_at timestamp default now(),
   updated_at timestamp default now(),
   deleted_at timestamp,
+  due_date timestamp,
   group_ids text[] default array[]::text[],
   tags text[] default array[]::text[]
 );
@@ -76,6 +77,7 @@ create index notes_user_id_idx on notes(user_id);
 create index notes_user_id_deleted_at_idx on notes(user_id, deleted_at);
 create index todos_user_id_idx on todos(user_id);
 create index todos_user_id_deleted_at_idx on todos(user_id, deleted_at);
+create index todos_due_date_idx on todos(due_date) where due_date is not null;
 create index todo_groups_user_id_idx on todo_groups(user_id);
 create index attachments_note_id_idx on attachments(note_id);
 create index workflows_user_id_idx on workflows(user_id);

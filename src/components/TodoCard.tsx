@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { TrashIcon, LinkIcon, NoteIcon, TagIcon, XIcon, PlusIcon, FoldersIcon } from '@phosphor-icons/react';
+import { TrashIcon, LinkIcon, NoteIcon, TagIcon, XIcon, PlusIcon, FoldersIcon, CalendarBlank, Clock } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Todo, TodoGroup } from '@/lib/types';
 
@@ -17,13 +17,17 @@ interface TodoCardProps {
   onViewNotes: () => void;
   onToggleGroup: (groupId: string) => void;
   onUpdateTags: (tags: string[]) => void;
+  onUpdateDueDate: (dueDate: number | undefined) => void;
 }
 
-export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onViewNotes, onToggleGroup, onUpdateTags }: TodoCardProps) {
+export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onViewNotes, onToggleGroup, onUpdateTags, onUpdateDueDate }: TodoCardProps) {
   const [newTag, setNewTag] = useState('');
   const assignedGroups = groups.filter(g => (todo.groupIds || []).includes(g.id));
   const linkedNoteIds = todo.linkedNoteIds || [];
   const tags = todo.tags || [];
+  
+  const isOverdue = todo.dueDate && !todo.completed && todo.dueDate < Date.now();
+  const isDueSoon = todo.dueDate && !todo.completed && todo.dueDate > Date.now() && todo.dueDate < Date.now() + 24 * 60 * 60 * 1000;
 
   const handleAddTag = () => {
     const trimmedTag = newTag.trim();
@@ -41,6 +45,16 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
     if (e.key === 'Enter') {
       handleAddTag();
     }
+  };
+
+  const formatDateForInput = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   return (
@@ -80,6 +94,15 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
             ))}
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {todo.dueDate && (
+              <Badge 
+                variant={isOverdue ? "destructive" : isDueSoon ? "default" : "secondary"} 
+                className="h-4 px-1.5 text-[10px] leading-none py-0.5"
+              >
+                <Clock size={10} className="mr-0.5" />
+                {new Date(todo.dueDate).toLocaleDateString()}
+              </Badge>
+            )}
             {linkedNoteIds.length > 0 && (
               <>
                 <Badge variant="secondary" className="h-4 px-1.5 text-[10px] leading-none py-0.5">
@@ -216,6 +239,45 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-6 w-6 ${isOverdue ? 'text-destructive hover:text-destructive' : 'text-muted-foreground hover:text-accent'}`}
+                aria-label="Set due date"
+                title="Set due date"
+              >
+                <CalendarBlank size={13} weight={todo.dueDate ? "fill" : "regular"} aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-semibold">Due Date</p>
+                <Input
+                  type="datetime-local"
+                  value={todo.dueDate ? formatDateForInput(todo.dueDate) : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onUpdateDueDate(new Date(e.target.value).getTime());
+                    }
+                  }}
+                  className="h-8 text-sm"
+                />
+                {todo.dueDate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onUpdateDueDate(undefined)}
+                    className="w-full h-8"
+                  >
+                    <XIcon size={12} className="mr-1" />
+                    Clear Due Date
+                  </Button>
                 )}
               </div>
             </PopoverContent>

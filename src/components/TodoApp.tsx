@@ -437,6 +437,80 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         );
     }, [setTodos]);
 
+    const updateTodoDueDate = useCallback((todoId: string, dueDate: number | undefined) => {
+        setTodos(current =>
+            (current || []).map(todo =>
+                todo.id === todoId
+                    ? { ...todo, dueDate, updatedAt: Date.now() }
+                    : todo
+            )
+        );
+        if (dueDate) {
+            toast.success('Due date set');
+        } else {
+            toast.success('Due date cleared');
+        }
+    }, [setTodos]);
+
+    // Request notification permission on mount
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    // Sync todos with service worker for background notifications
+    useEffect(() => {
+        if (!todos || !navigator.serviceWorker?.controller) return;
+
+        // Send todos to service worker
+        navigator.serviceWorker.controller.postMessage({
+            type: 'UPDATE_TODOS',
+            todos: todos
+        });
+    }, [todos]);
+
+    // Listen for messages from service worker
+    useEffect(() => {
+        if (!navigator.serviceWorker) return;
+
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data.type === 'COMPLETE_TODO') {
+                // Mark todo as complete when user clicks notification action
+                toggleTodo(event.data.todoId);
+            }
+        };
+
+        navigator.serviceWorker.addEventListener('message', handleMessage);
+        return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+    }, [toggleTodo]);
+
+    // Check for overdue todos and send notifications (fallback for when SW is not active)
+    useEffect(() => {
+        if (!todos || Notification.permission !== 'granted') return;
+
+        const checkInterval = setInterval(() => {
+            const now = Date.now();
+            todos.forEach(todo => {
+                if (
+                    todo.dueDate &&
+                    !todo.completed &&
+                    !todo.deletedAt &&
+                    todo.dueDate <= now &&
+                    todo.dueDate > now - 60000 // Only notify if overdue within last minute
+                ) {
+                    new Notification('Todo Overdue!', {
+                        body: `"${todo.title}" is now overdue`,
+                        icon: '/favicon.ico',
+                        tag: todo.id,
+                    });
+                }
+            });
+        }, 60000); // Check every minute
+
+        return () => clearInterval(checkInterval);
+    }, [todos]);
+
     const customGroups = useMemo(() => {
         return (groups || []).filter(g => !g.isDefault).sort((a, b) => b.createdAt - a.createdAt);
     }, [groups]);
@@ -824,6 +898,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                             onViewNotes={() => handleViewNotes(todo.id)}
                                                             onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
                                                             onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
+                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
                                                         />
                                                     ))}
                                                 </div>
@@ -864,6 +939,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                             onViewNotes={() => handleViewNotes(todo.id)}
                                                             onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
                                                             onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
+                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
                                                         />
                                                     ))}
                                                 </div>
@@ -904,6 +980,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                             onViewNotes={() => handleViewNotes(todo.id)}
                                                             onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
                                                             onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
+                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
                                                         />
                                                     ))}
                                                 </div>
@@ -945,6 +1022,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                                 onViewNotes={() => handleViewNotes(todo.id)}
                                                                 onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
                                                                 onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
+                                                                onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
                                                             />
                                                         ))}
                                                     </div>

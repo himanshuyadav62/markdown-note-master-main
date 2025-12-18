@@ -189,6 +189,9 @@ export function useTodos(): UseTodosResult {
           linkedNoteIds: [],
           groupIds: todo.group_ids || [],
           tags: todo.tags || [],
+          dueDate: todo.due_date
+            ? new Date(todo.due_date).getTime()
+            : undefined,
         }))
       );
     } catch (error) {
@@ -246,6 +249,9 @@ export function useTodos(): UseTodosResult {
                 : null,
               group_ids: todo.groupIds || [],
               tags: todo.tags || [],
+              due_date: todo.dueDate
+                ? new Date(todo.dueDate).toISOString()
+                : null,
             });
 
             if (error) throw error;

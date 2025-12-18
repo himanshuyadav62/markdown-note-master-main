@@ -33,6 +33,7 @@ export interface Todo {
   deletedAt?: number;
   groupIds: string[];
   tags?: string[];
+  dueDate?: number;
 }
 
 export interface TodoGroup {
