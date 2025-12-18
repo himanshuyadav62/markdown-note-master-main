@@ -34,6 +34,8 @@ import { useTodos, useWorkflows } from '@/hooks/use-data-sync';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/use-theme';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabaseClient';
+import { Workflow } from '@/lib/types';
 
 type NodeStatus = 'idea' | 'in-progress' | 'blocked' | 'done';
 
@@ -55,7 +57,6 @@ type WorkflowEdgeData = {
 type WorkflowMeta = {
   title: string;
   summary: string;
-  globalContext: string;
   tags: string[];
 };
 
@@ -135,61 +136,6 @@ function WorkflowNode({ data }: { data: WorkflowNodeData }) {
 
 const nodeTypes = { workflow: WorkflowNode };
 
-const defaultNodes: Node<WorkflowNodeData>[] = [
-  {
-    id: 'research',
-    type: 'workflow',
-    position: { x: 80, y: 80 },
-    data: {
-      title: 'Discovery',
-      context: 'Clarify the user problem, constraints, and success signals.',
-      status: 'idea',
-      tags: ['inputs', 'context'],
-      color: '#38bdf8',
-      todos: []
-    }
-  },
-  {
-    id: 'plan',
-    type: 'workflow',
-    position: { x: 360, y: 80 },
-    data: {
-      title: 'Shaping',
-      context: 'Break work into thin slices, define acceptance, surface risks.',
-      status: 'in-progress',
-      tags: ['scope', 'alignment'],
-      color: '#818cf8',
-      todos: []
-    }
-  },
-  {
-    id: 'build',
-    type: 'workflow',
-    position: { x: 200, y: 240 },
-    data: {
-      title: 'Build',
-      context: 'Implement, review quickly, keep PRs small, ship behind flags.',
-      status: 'in-progress',
-      tags: ['delivery'],
-      color: '#f59e0b',
-      todos: []
-    }
-  },
-  {
-    id: 'launch',
-    type: 'workflow',
-    position: { x: 500, y: 240 },
-    data: {
-      title: 'Launch & Measure',
-      context: 'Release, measure impact, and capture learnings for the next cycle.',
-      status: 'done',
-      tags: ['impact', 'feedback'],
-      color: '#22c55e',
-      todos: []
-    }
-  }
-];
-
 const defaultEdges: Edge<WorkflowEdgeData>[] = [
   {
     id: 'e-research-plan',
@@ -237,15 +183,7 @@ const defaultEdges: Edge<WorkflowEdgeData>[] = [
 const defaultMeta: WorkflowMeta = {
   title: 'Workflow pilot',
   summary: 'Design and communicate how ideas turn into shipped outcomes.',
-  globalContext: 'Use this canvas to connect notes, tasks, owners, and risks. Keep edges directional when the output of one node is the input of another. Keep undirected edges for feedback loops.',
   tags: ['flow', 'team', 'planning']
-};
-
-const defaultState: WorkflowState = {
-  meta: defaultMeta,
-  nodes: defaultNodes,
-  edges: defaultEdges,
-  lastSaved: Date.now()
 };
 
 function parseTags(raw: string) {
@@ -253,6 +191,57 @@ function parseTags(raw: string) {
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
+}
+
+function sanitizeWorkflowState(state: WorkflowState): WorkflowState {
+  const cleanMeta: WorkflowMeta = {
+    title: state.meta.title || '',
+    summary: state.meta.summary || '',
+    tags: Array.isArray(state.meta.tags) ? state.meta.tags.filter(Boolean) : []
+  };
+
+  const cleanNodes: Node<WorkflowNodeData>[] = (state.nodes || []).map((node) => {
+    const tags = Array.isArray(node.data.tags) ? node.data.tags : [];
+    const todos = Array.isArray(node.data.todos) ? node.data.todos : [];
+
+    return {
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      sourcePosition: node.sourcePosition,
+      targetPosition: node.targetPosition,
+      data: {
+        title: node.data.title || 'Untitled node',
+        context: node.data.context || '',
+        owner: node.data.owner || '',
+        status: node.data.status || 'idea',
+        tags,
+        color: node.data.color || '#c7d2fe',
+        todos
+      }
+    } as Node<WorkflowNodeData>;
+  });
+
+  const cleanEdges: Edge<WorkflowEdgeData>[] = (state.edges || []).map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle,
+    targetHandle: edge.targetHandle,
+    type: edge.type,
+    label: edge.label,
+    data: { directed: edge.data?.directed ?? false },
+    markerStart: edge.markerStart,
+    markerEnd: edge.markerEnd,
+    style: edge.style
+  }));
+
+  return {
+    meta: cleanMeta,
+    nodes: cleanNodes,
+    edges: cleanEdges,
+    lastSaved: state.lastSaved
+  };
 }
 
 function edgeWithDirection(
@@ -293,14 +282,92 @@ export function WorkflowBuilder() {
   const navigate = useNavigate();
   const { workflowId } = useParams<{ workflowId: string }>();
   const { theme, toggleTheme } = useTheme();
-  const { workflows, setWorkflows } = useWorkflows();
+  const { workflows, setWorkflows, dataMode } = useWorkflows();
   const { todos } = useTodos();
 
-  // Find current workflow
-  const currentWorkflow = useMemo(
-    () => workflows.find((w) => w.id === workflowId),
-    [workflows, workflowId]
-  );
+  const [loadedWorkflow, setLoadedWorkflow] = useState<Workflow | null>(null);
+  const [isLoadingWorkflow, setIsLoadingWorkflow] = useState(true);
+  const [workflowNotFound, setWorkflowNotFound] = useState(false);
+
+  // Fetch workflow data from database or localStorage
+  useEffect(() => {
+    if (!workflowId) return;
+
+    const fetchWorkflow = async () => {
+      setIsLoadingWorkflow(true);
+      setWorkflowNotFound(false);
+      
+      if (dataMode === 'remote' && user) {
+        // Fetch from Supabase
+        try {
+          const { data, error } = await supabase
+            .from('workflows')
+            .select('*')
+            .eq('id', workflowId)
+            .eq('user_id', user.id)
+            .is('deleted_at', null)
+            .single();
+
+          if (error) {
+            if (error.code === 'PGRST116') {
+              // Workflow not found
+              console.log('Workflow not found in database');
+              setLoadedWorkflow(null);
+              setWorkflowNotFound(true);
+            } else {
+              throw error;
+            }
+          } else if (data) {
+            setLoadedWorkflow({
+              id: data.id,
+              name: data.name,
+              data: data.data,
+              createdAt: new Date(data.created_at).getTime(),
+              updatedAt: new Date(data.updated_at).getTime(),
+              todos: data.todos || [],
+            });
+            setWorkflowNotFound(false);
+          }
+        } catch (error) {
+          console.error('Failed to load workflow from database:', error);
+          toast.error('Failed to load workflow');
+          setWorkflowNotFound(true);
+        }
+      } else {
+        // Load from localStorage
+        try {
+          const workflowData = localStorage.getItem(`workflow:${workflowId}`);
+          const summariesRaw = localStorage.getItem('workflows-list');
+          const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
+          const summary = summaries.find((s: any) => s.id === workflowId);
+          
+          if (workflowData && summary) {
+            setLoadedWorkflow({
+              id: workflowId,
+              name: summary.name,
+              data: JSON.parse(workflowData),
+              createdAt: summary.createdAt || Date.now(),
+              updatedAt: summary.updatedAt || Date.now(),
+              todos: summary.todos || [],
+            });
+            setWorkflowNotFound(false);
+          } else {
+            // Workflow not found locally
+            setLoadedWorkflow(null);
+            setWorkflowNotFound(true);
+          }
+        } catch (error) {
+          console.error('Failed to load workflow from localStorage:', error);
+          setLoadedWorkflow(null);
+          setWorkflowNotFound(true);
+        }
+      }
+      
+      setIsLoadingWorkflow(false);
+    };
+
+    fetchWorkflow();
+  }, [workflowId, user?.id, dataMode]);
 
   const initialState = useMemo(() => {
     const normalizeNodes = (rawNodes?: Node<WorkflowNodeData>[]) =>
@@ -321,13 +388,12 @@ export function WorkflowBuilder() {
         };
       });
 
-    if (currentWorkflow?.data) {
-      const data = currentWorkflow.data as WorkflowState;
+    if (loadedWorkflow?.data) {
+      const data = loadedWorkflow.data as WorkflowState;
       return {
         meta: {
-          title: data.meta?.title || currentWorkflow?.name || 'Untitled Workflow',
+          title: data.meta?.title || loadedWorkflow?.name || 'Untitled Workflow',
           summary: data.meta?.summary || '',
-          globalContext: data.meta?.globalContext || '',
           tags: data.meta?.tags || []
         },
         nodes: normalizeNodes(data.nodes || []),
@@ -337,12 +403,12 @@ export function WorkflowBuilder() {
     }
 
     return {
-      meta: { title: currentWorkflow?.name || 'Untitled Workflow', summary: '', globalContext: '', tags: [] },
+      meta: { title: loadedWorkflow?.name || 'Untitled Workflow', summary: '', tags: [] },
       nodes: [],
       edges: [],
       lastSaved: Date.now()
     } as WorkflowState;
-  }, [currentWorkflow]);
+  }, [loadedWorkflow]);
 
   const [workflowState, setWorkflowState] = useState<WorkflowState>(initialState);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeData>(initialState.nodes);
@@ -384,45 +450,82 @@ export function WorkflowBuilder() {
     setIsInitialized(true);
   }, []);
 
+  // Update state when workflow is loaded
+  useEffect(() => {
+    if (!isLoadingWorkflow && loadedWorkflow?.data) {
+      const data = loadedWorkflow.data as WorkflowState;
+      setMeta(data.meta || { title: loadedWorkflow.name || 'Untitled Workflow', summary: '', tags: [] });
+      setNodes(data.nodes || []);
+      setEdges(data.edges || []);
+      setWorkflowState(data);
+    } else if (!isLoadingWorkflow && !loadedWorkflow) {
+      // New workflow - keep empty state
+      setMeta({ title: 'Untitled Workflow', summary: '', tags: [] });
+      setNodes([]);
+      setEdges([]);
+    }
+  }, [loadedWorkflow, isLoadingWorkflow, setNodes, setEdges]);
+
   // Persist workflow state and update last saved timestamp
   useEffect(() => {
     // Only persist after component is initialized to prevent loops on mount
-    if (!isInitialized || !workflowId || !currentWorkflow) return;
-    
+    if (!isInitialized || !workflowId) return;
+
     const now = Date.now();
-    const newState = { meta, nodes, edges, lastSaved: now };
-    const workflowTodos = Array.from(new Set(nodes.flatMap((n) => n.data.todos || [])));
-    
+    const sanitizedState = sanitizeWorkflowState({ meta, nodes, edges, lastSaved: now });
+    const workflowTodos = Array.from(new Set(sanitizedState.nodes.flatMap((n) => n.data.todos || [])));
+
     // Check if the state actually changed by comparing JSON strings
-    const newStateString = JSON.stringify({ meta, nodes, edges });
+    const newStateString = JSON.stringify({ meta: sanitizedState.meta, nodes: sanitizedState.nodes, edges: sanitizedState.edges });
     if (newStateString === lastSavedStateRef.current) {
       return; // No changes, skip save
     }
-    
+
+    console.log('Workflow state changed, will save after debounce');
+
     // Update the last saved state reference
     lastSavedStateRef.current = newStateString;
-    setWorkflowState(newState);
+    setWorkflowState(sanitizedState);
 
     // Use a timeout to debounce saves and prevent infinite loops
     const timeoutId = setTimeout(async () => {
+      console.log('Saving workflow:', workflowId, 'with', sanitizedState.nodes.length, 'nodes and', sanitizedState.edges.length, 'edges');
       await setWorkflows((list) => {
-        const updated = (list || []).map((w) =>
-          w.id === workflowId
-            ? {
+        const existingWorkflow = (list || []).find((w) => w.id === workflowId);
+        
+        if (existingWorkflow) {
+          // Update existing workflow
+          return (list || []).map((w) =>
+            w.id === workflowId
+              ? {
                 ...w,
                 name: meta.title || 'Untitled Workflow',
-                data: newState,
+                data: sanitizedState,
                 updatedAt: now,
                 todos: workflowTodos
               }
-            : w
-        );
-        return updated;
+              : w
+          );
+        } else {
+          // Create new workflow if it doesn't exist
+          return [
+            ...(list || []),
+            {
+              id: workflowId,
+              name: meta.title || 'Untitled Workflow',
+              data: sanitizedState,
+              createdAt: now,
+              updatedAt: now,
+              todos: workflowTodos
+            }
+          ];
+        }
       });
+      console.log('Workflow save completed');
     }, 300); // Increased debounce time to 300ms
 
     return () => clearTimeout(timeoutId);
-  }, [meta, nodes, edges, workflowId, isInitialized]); // Removed currentWorkflow and setWorkflows from deps
+  }, [meta, nodes, edges, workflowId, isInitialized, setWorkflows]);
 
   useEffect(() => {
     if (!selectedNode && nodes.length > 0) {
@@ -485,11 +588,11 @@ export function WorkflowBuilder() {
     }
 
     const edge = edgeWithDirection(
-      { 
-        source: edgeDraft.source, 
-        target: edgeDraft.target, 
-        sourceHandle: 'bottom', 
-        targetHandle: 'top' 
+      {
+        source: edgeDraft.source,
+        target: edgeDraft.target,
+        sourceHandle: 'bottom',
+        targetHandle: 'top'
       },
       edgeDraft.directed,
       edgeDraft.label || undefined
@@ -498,7 +601,7 @@ export function WorkflowBuilder() {
     toast.success('Edge added');
   }, [edgeDraft.directed, edgeDraft.label, edgeDraft.source, edgeDraft.target, setEdges]);
 
-  const addNode = useCallback(() => {
+  const addNode = useCallback(async () => {
     if (!newNodeDraft.title.trim()) {
       toast.error('Add a title before creating a node.');
       return;
@@ -524,12 +627,50 @@ export function WorkflowBuilder() {
       }
     };
 
-    setNodes((nds) => [...nds, node]);
+    const updatedNodes = [...nodes, node];
+    setNodes(updatedNodes);
     setSelectedNodeId(node.id);
     setEdgeDraft((draft) => ({ ...draft, source: node.id }));
     setNewNodeDraft({ title: 'New node', context: '', status: 'idea', color: '#c7d2fe', owner: '', tags: '' });
     toast.success('Node created');
-  }, [newNodeDraft.color, newNodeDraft.context, newNodeDraft.owner, newNodeDraft.status, newNodeDraft.tags, newNodeDraft.title, reactFlowInstance, setNodes]);
+
+    // Immediately save to backend
+    if (workflowId) {
+      const now = Date.now();
+      const sanitizedState = sanitizeWorkflowState({ meta, nodes: updatedNodes, edges, lastSaved: now });
+      const workflowTodos = Array.from(new Set(sanitizedState.nodes.flatMap((n) => n.data.todos || [])));
+
+      await setWorkflows((list) => {
+        const existingWorkflow = (list || []).find((w) => w.id === workflowId);
+        
+        if (existingWorkflow) {
+          return (list || []).map((w) =>
+            w.id === workflowId
+              ? {
+                ...w,
+                name: meta.title || 'Untitled Workflow',
+                data: sanitizedState,
+                updatedAt: now,
+                todos: workflowTodos
+              }
+              : w
+          );
+        } else {
+          return [
+            ...(list || []),
+            {
+              id: workflowId,
+              name: meta.title || 'Untitled Workflow',
+              data: sanitizedState,
+              createdAt: now,
+              updatedAt: now,
+              todos: workflowTodos
+            }
+          ];
+        }
+      });
+    }
+  }, [newNodeDraft.color, newNodeDraft.context, newNodeDraft.owner, newNodeDraft.status, newNodeDraft.tags, newNodeDraft.title, reactFlowInstance, setNodes, nodes, workflowId, meta, edges, setWorkflows]);
 
   const updateSelectedNode = useCallback(
     (updates: Partial<WorkflowNodeData>) => {
@@ -556,13 +697,64 @@ export function WorkflowBuilder() {
     [selectedNodeId, setNodes]
   );
 
-  const resetToDefault = useCallback(() => {
-    setNodes(defaultNodes);
-    setEdges(defaultEdges);
-    setMeta(defaultMeta);
-    setSelectedNodeId(defaultNodes[0].id);
-    toast.success('Reset to starter workflow');
-  }, [setEdges, setMeta, setNodes]);
+
+  // Show 404 if workflow not found
+  if (workflowNotFound && !isLoadingWorkflow) {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        <header className="border-b border-border bg-card/70 backdrop-blur-md">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="gap-1">
+                <GraphIcon size={16} />
+                Workflow Not Found
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              >
+                {theme === 'light' ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+              </Button>
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 p-8">
+            <div className="text-6xl font-bold text-muted-foreground">404</div>
+            <h1 className="text-2xl font-semibold">Workflow Not Found</h1>
+            <p className="text-muted-foreground max-w-md">
+              The workflow you're looking for doesn't exist or you don't have permission to view it.
+            </p>
+            <div className="flex gap-3 justify-center pt-4">
+              <Button onClick={() => navigate('/workflows')} variant="default">
+                <ShareNetworkIcon size={16} className="mr-2" />
+                View All Workflows
+              </Button>
+              <Button onClick={() => navigate('/')} variant="outline">
+                Go Home
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (isLoadingWorkflow) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading workflow...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -657,12 +849,6 @@ export function WorkflowBuilder() {
                   placeholder="What does this workflow help you reason about?"
                   className="min-h-[80px]"
                 />
-                <Textarea
-                  value={meta.globalContext}
-                  onChange={(e) => setMeta((m) => ({ ...m, globalContext: e.target.value }))}
-                  placeholder="Global context, constraints, links to docs, owners..."
-                  className="min-h-[100px]"
-                />
                 <Input
                   value={meta.tags.join(', ')}
                   onChange={(e) => setMeta((m) => ({ ...m, tags: parseTags(e.target.value) }))}
@@ -730,66 +916,6 @@ export function WorkflowBuilder() {
                   <FlowArrowIcon size={16} className="mr-1" />
                   Create node
                 </Button>
-              </section>
-
-              <section className="space-y-3 border rounded-lg border-border bg-background/60 p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <ArrowLineRightIcon size={16} />
-                    Connect nodes
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    Directed
-                    <Switch
-                      checked={edgeDraft.directed}
-                      onCheckedChange={(checked) => setEdgeDraft((d) => ({ ...d, directed: checked }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    value={edgeDraft.source}
-                    onValueChange={(value) => setEdgeDraft((d) => ({ ...d, source: value }))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nodes.map((n) => (
-                        <SelectItem key={n.id} value={n.id}>
-                          {n.data.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={edgeDraft.target}
-                    onValueChange={(value) => setEdgeDraft((d) => ({ ...d, target: value }))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Target" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nodes.map((n) => (
-                        <SelectItem key={n.id} value={n.id}>
-                          {n.data.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  value={edgeDraft.label}
-                  onChange={(e) => setEdgeDraft((d) => ({ ...d, label: e.target.value }))}
-                  placeholder="Label (handoff, depends on, informs...)"
-                />
-                <Button variant="outline" onClick={addManualEdge} className="w-full">
-                  <FlowArrowIcon size={16} className="mr-1" />
-                  Add edge
-                </Button>
-                <div className="rounded-md bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                  Tip: toggle directed edges for handoffs and undirected for feedback loops.
-                </div>
               </section>
 
               <section className="space-y-3 border rounded-lg border-border bg-background/60 p-3">
@@ -878,6 +1004,71 @@ export function WorkflowBuilder() {
                   </div>
                 )}
               </section>
+
+              {nodes.length >= 2 && (
+                <section className="space-y-3 border rounded-lg border-border bg-background/60 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <ShareNetworkIcon size={16} />
+                    Create edge
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">From</label>
+                      <Select
+                        value={edgeDraft.source}
+                        onValueChange={(value) => setEdgeDraft((d) => ({ ...d, source: value }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodes.map((node) => (
+                            <SelectItem key={node.id} value={node.id}>
+                              {node.data.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">To</label>
+                      <Select
+                        value={edgeDraft.target}
+                        onValueChange={(value) => setEdgeDraft((d) => ({ ...d, target: value }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Target" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodes.map((node) => (
+                            <SelectItem key={node.id} value={node.id}>
+                              {node.data.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Input
+                    value={edgeDraft.label}
+                    onChange={(e) => setEdgeDraft((d) => ({ ...d, label: e.target.value }))}
+                    placeholder="Edge label (optional)"
+                  />
+                  <div className="flex items-center gap-2 text-xs">
+                    <Switch
+                      checked={edgeDraft.directed}
+                      onCheckedChange={(checked) => setEdgeDraft((d) => ({ ...d, directed: checked }))}
+                    />
+                    <span className="text-muted-foreground">
+                      {edgeDraft.directed ? 'Directed (arrow)' : 'Undirected (both arrows)'}
+                    </span>
+                  </div>
+                  <Button onClick={addManualEdge} className="w-full bg-accent hover:bg-accent/90">
+                    <ShareNetworkIcon size={16} className="mr-1" />
+                    Create edge
+                  </Button>
+                </section>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -904,8 +1095,15 @@ export function WorkflowBuilder() {
             <MiniMap nodeColor={(node) => node.data.color} />
             <Controls showZoom showFitView />
             <Panel position="top-right" className="bg-card/80 border border-border shadow-lg rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Auto-saves locally</div>
+              <div className="text-xs text-muted-foreground">
+                {dataMode === 'remote' ? 'Auto-saves to cloud' : 'Auto-saves locally'}
+              </div>
               <div className="text-sm font-medium">Last saved: {new Date(workflowState.lastSaved).toLocaleTimeString()}</div>
+              {dataMode === 'remote' && user?.email && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  Synced for {user.email.split('@')[0]}
+                </div>
+              )}
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch
                   checked={connectConfig.directed}

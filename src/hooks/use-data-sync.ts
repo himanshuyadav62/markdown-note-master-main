@@ -397,7 +397,6 @@ export function useWorkflows(): UseWorkflowsResult {
   const [workflows, setWorkflowsState] = useState<Workflow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [loadedMode, setLoadedMode] = useState<DataMode | 'none'>('none');
 
   const dataMode: DataMode = user ? 'remote' : 'local';
 
@@ -427,7 +426,6 @@ export function useWorkflows(): UseWorkflowsResult {
     }
     setIsLoading(false);
     setHasLoaded(true);
-    setLoadedMode('local');
   }, []);
 
   // Load workflows from Supabase
@@ -461,7 +459,6 @@ export function useWorkflows(): UseWorkflowsResult {
     } finally {
       setIsLoading(false);
       setHasLoaded(true);
-      setLoadedMode('remote');
     }
   }, [user]);
 
@@ -475,14 +472,7 @@ export function useWorkflows(): UseWorkflowsResult {
     } else if (dataMode === 'remote') {
       loadRemoteWorkflows();
     }
-  }, [user?.id, hasLoaded]);
-
-  // If we initially loaded local (before auth resolved), load remote once user becomes available
-  useEffect(() => {
-    if (user?.id && hasLoaded && loadedMode === 'local') {
-      loadRemoteWorkflows();
-    }
-  }, [user?.id, hasLoaded, loadedMode, loadRemoteWorkflows]);
+  }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
   // Save workflows
   const setWorkflows = useCallback(
@@ -520,7 +510,9 @@ export function useWorkflows(): UseWorkflowsResult {
         }
       } else if (dataMode === 'remote' && user) {
         try {
+          console.log('Saving workflows to remote:', nextWorkflows.length);
           for (const workflow of nextWorkflows) {
+            console.log('Upserting workflow:', workflow.id, workflow.name);
             const { error } = await supabase.from('workflows').upsert({
               id: workflow.id,
               user_id: user.id,
@@ -534,8 +526,12 @@ export function useWorkflows(): UseWorkflowsResult {
               todos: workflow.todos || [],
             });
 
-            if (error) throw error;
+            if (error) {
+              console.error('Error upserting workflow:', error);
+              throw error;
+            }
           }
+          console.log('All workflows saved successfully');
         } catch (error) {
           console.error('Failed to save remote workflows:', error);
           toast.error('Failed to save workflows to Supabase');
