@@ -52,13 +52,33 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
           className="mt-0"
         />
         <div className="flex-1 min-w-0">
-          <h3 
-            className={`font-medium text-sm leading-snug ${
-              todo.completed ? 'line-through text-muted-foreground' : ''
-            }`}
-          >
-            {todo.title}
-          </h3>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 
+              className={`font-medium text-sm leading-snug ${
+                todo.completed ? 'line-through text-muted-foreground' : ''
+              }`}
+            >
+              {todo.title}
+            </h3>
+            {tags.map(tag => (
+              <Badge 
+                key={tag}
+                variant="secondary"
+                className="h-4 px-1.5 text-[10px] leading-none py-0.5 group/tag"
+              >
+                #{tag}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveTag(tag);
+                  }}
+                  className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                >
+                  <XIcon size={8} />
+                </button>
+              </Badge>
+            ))}
+          </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {linkedNoteIds.length > 0 && (
               <>
@@ -96,24 +116,6 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
           </div>
         </div>
         <div className="flex items-center gap-0.5 flex-wrap justify-end">
-          {tags.map(tag => (
-            <Badge 
-              key={tag}
-              variant="secondary"
-              className="h-4 px-1.5 text-[10px] leading-none py-0.5 group/tag"
-            >
-              #{tag}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveTag(tag);
-                }}
-                className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
-              >
-                <XIcon size={8} />
-              </button>
-            </Badge>
-          ))}
           <div className="flex items-center gap-0.5">
             <Popover>
               <PopoverTrigger asChild>

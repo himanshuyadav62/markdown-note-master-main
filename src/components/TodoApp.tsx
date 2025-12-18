@@ -16,6 +16,7 @@ import { NotePreviewPanel } from '@/components/NotePreviewPanel';
 import { Todo, Note, TodoGroup } from '@/lib/types';
 import { useTodoGroups, useNotes, useTodos } from '@/hooks/use-data-sync';
 import { useAuth } from '@/providers/AuthProvider';
+import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -218,16 +219,63 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         toast.success('Todo restored');
     }, [setTodos]);
 
-    const permanentlyDeleteTodo = useCallback((id: string) => {
+    const permanentlyDeleteTodo = useCallback(async (id: string) => {
+        // Delete from Supabase if user is logged in
+        if (user) {
+            try {
+                const { error } = await supabase
+                    .from('todos')
+                    .delete()
+                    .eq('id', id)
+                    .eq('user_id', user.id);
+
+                if (error) {
+                    console.error('Failed to delete todo from database:', error);
+                    toast.error('Failed to delete todo from database');
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to delete todo:', error);
+                toast.error('Failed to delete todo');
+                return;
+            }
+        }
+
+        // Update local state
         setTodos(current => (current || []).filter(todo => todo.id !== id));
         setPermanentDeleteId(null);
         toast.success('Todo permanently deleted');
-    }, [setTodos]);
+    }, [setTodos, user]);
 
-    const emptyRecycleBin = useCallback(() => {
+    const emptyRecycleBin = useCallback(async () => {
+        const deletedTodos = (todos || []).filter(todo => todo.deletedAt);
+        
+        // Delete from Supabase if user is logged in
+        if (user && deletedTodos.length > 0) {
+            try {
+                const deletedIds = deletedTodos.map(todo => todo.id);
+                const { error } = await supabase
+                    .from('todos')
+                    .delete()
+                    .in('id', deletedIds)
+                    .eq('user_id', user.id);
+
+                if (error) {
+                    console.error('Failed to empty recycle bin in database:', error);
+                    toast.error('Failed to empty recycle bin from database');
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to empty recycle bin:', error);
+                toast.error('Failed to empty recycle bin');
+                return;
+            }
+        }
+
+        // Update local state
         setTodos(current => (current || []).filter(todo => !todo.deletedAt));
         toast.success('Recycle bin emptied');
-    }, [setTodos]);
+    }, [setTodos, user, todos]);
 
     const openLinkDialog = useCallback((todoId: string) => {
         setSelectedTodoId(todoId);
