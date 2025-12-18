@@ -260,20 +260,21 @@ export function NotesApp() {
         {isSidebarVisible && (
           <>
             <aside 
-              className="border-r border-border bg-card/30 flex flex-col relative"
+              className="border-r border-border bg-card/30 flex flex-col relative overflow-hidden"
               style={{ width: `${sidebarWidth}px` }}
             >
-              <div className="p-4">
-                <div className="relative">
+              <div className="p-4 shrink-0" style={{ minWidth: 0 }}>
+                <div className="relative" style={{ minWidth: 0 }}>
                   <MagnifyingGlassIcon 
                     size={18} 
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" 
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" 
                   />
                   <Input
                     placeholder="Search notes..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 w-full"
+                    style={{ minWidth: 0 }}
                   />
                 </div>
               </div>

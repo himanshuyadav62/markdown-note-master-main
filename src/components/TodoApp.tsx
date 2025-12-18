@@ -481,8 +481,8 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     return (
         <div className="flex-1 flex flex-col bg-background overflow-hidden w-full">
             <header className="border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
-                <div className="px-6 py-4 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-foreground">Todo List</h1>
+                <div className="px-6 py-3 flex items-center justify-between">
+                    <h1 className="text-xl font-bold text-foreground">Todo List</h1>
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
@@ -580,24 +580,24 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
             <div className="flex-1 flex overflow-hidden w-full">
                 <div className="flex-1 flex flex-col min-w-0">
-                    <div className="p-6 border-b border-border shrink-0">
+                    <div className="p-4 border-b border-border shrink-0">
                         <div className="flex gap-2">
                             <Input
                                 placeholder="What needs to be done?"
                                 value={newTodoTitle}
                                 onChange={(e) => setNewTodoTitle(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                className="flex-1"
+                                className="flex-1 h-9"
                             />
-                            <Button onClick={createTodo} className="bg-accent hover:bg-accent/90">
-                                <PlusIcon size={18} weight="bold" className="mr-1" />
+                            <Button onClick={createTodo} className="bg-accent hover:bg-accent/90 h-9">
+                                <PlusIcon size={16} weight="bold" className="mr-1" />
                                 Add Todo
                             </Button>
                         </div>
                     </div>
 
                     <Tabs value={activeTabValue} onValueChange={setActiveTabValue} className="flex-1 flex flex-col overflow-hidden">
-                        <div className="px-6 pt-4 shrink-0">
+                        <div className="px-6 pt-3 shrink-0">
                             <ScrollArea className="w-full whitespace-nowrap">
                                 <TabsList>
                                     <TabsTrigger value="all">
@@ -626,12 +626,12 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                         </div>
 
                         {allTags.length > 0 && (
-                            <div className="px-6 py-3 border-b border-border shrink-0">
+                            <div className="px-6 py-2 border-b border-border shrink-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm text-muted-foreground">Filter by tag:</span>
+                                    <span className="text-xs text-muted-foreground">Filter by tag:</span>
                                     <Badge
                                         variant={selectedTagFilter === null ? "default" : "outline"}
-                                        className="cursor-pointer"
+                                        className="cursor-pointer h-6 text-xs"
                                         onClick={() => setSelectedTagFilter(null)}
                                     >
                                         All
@@ -640,7 +640,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                         <Badge
                                             key={tag}
                                             variant={selectedTagFilter === tag ? "default" : "outline"}
-                                            className="cursor-pointer"
+                                            className="cursor-pointer h-6 text-xs"
                                             onClick={() => setSelectedTagFilter(tag)}
                                         >
                                             #{tag}
@@ -652,7 +652,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
                         <TabsContent value="all" className="flex-1 mt-0 overflow-hidden">
                             <ScrollArea className="h-full">
-                                <div className="px-6 py-4 space-y-6">
+                                <div className="px-6 py-4 space-y-4">
                                     {allTodos.length === 0 ? (
                                         <div className="text-center py-12">
                                             <CheckCircleIcon size={64} className="mx-auto mb-4 text-muted-foreground/50" />
@@ -661,11 +661,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                         </div>
                                     ) : (
                                         groupedAllTodos.map(({ date, todos }) => (
-                                            <div key={date} className="space-y-3">
+                                            <div key={date} className="space-y-2">
                                                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                                                     {date}
                                                 </h3>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     {todos.map(todo => (
                                                         <TodoCard
                                                             key={todo.id}
@@ -692,7 +692,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
                         <TabsContent value="active" className="flex-1 mt-0 overflow-hidden">
                             <ScrollArea className="h-full">
-                                <div className="px-6 py-4 space-y-6">
+                                <div className="px-6 py-4 space-y-4">
                                     {incompleteTodos.length === 0 ? (
                                         <div className="text-center py-12">
                                             <CheckCircleIcon size={64} className="mx-auto mb-4 text-muted-foreground/50" />
@@ -701,11 +701,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                         </div>
                                     ) : (
                                         groupedIncompleteTodos.map(({ date, todos }) => (
-                                            <div key={date} className="space-y-3">
+                                            <div key={date} className="space-y-2">
                                                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                                                     {date}
                                                 </h3>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     {todos.map(todo => (
                                                         <TodoCard
                                                             key={todo.id}
@@ -741,11 +741,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                         </div>
                                     ) : (
                                         groupedCompleteTodos.map(({ date, todos }) => (
-                                            <div key={date} className="space-y-3">
+                                            <div key={date} className="space-y-2">
                                                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                                                     {date}
                                                 </h3>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     {todos.map(todo => (
                                                         <TodoCard
                                                             key={todo.id}
@@ -773,7 +773,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                         {customGroups.map(group => (
                             <TabsContent key={group.id} value={group.id} className="flex-1 mt-0 overflow-hidden">
                                 <ScrollArea className="h-full">
-                                    <div className="px-6 py-4 space-y-6">
+                                    <div className="px-6 py-4 space-y-4">
                                         {getTodosForGroup(group.id).length === 0 ? (
                                             <div className="text-center py-12">
                                                 <TagIcon size={64} className="mx-auto mb-4 text-muted-foreground/50" />
@@ -782,11 +782,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                             </div>
                                         ) : (
                                             groupTodosByDate(getTodosForGroup(group.id)).map(({ date, todos }) => (
-                                                <div key={date} className="space-y-3">
+                                                <div key={date} className="space-y-2">
                                                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                                                         {date}
                                                     </h3>
-                                                    <div className="space-y-3">
+                                                    <div className="space-y-2">
                                                         {todos.map(todo => (
                                                             <TodoCard
                                                                 key={todo.id}

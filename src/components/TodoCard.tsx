@@ -44,33 +44,33 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
   };
 
   return (
-    <Card className="p-4 hover:shadow-md transition-all duration-200">
-      <div className="flex items-start gap-3">
+    <Card className="p-2 hover:shadow-md transition-all duration-200">
+      <div className="flex items-start gap-2">
         <Checkbox
           checked={todo.completed}
           onCheckedChange={onToggle}
-          className="mt-1"
+          className="mt-0"
         />
         <div className="flex-1 min-w-0">
           <h3 
-            className={`font-medium text-base ${
+            className={`font-medium text-sm leading-snug ${
               todo.completed ? 'line-through text-muted-foreground' : ''
             }`}
           >
             {todo.title}
           </h3>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {linkedNoteIds.length > 0 && (
               <>
-                <Badge variant="secondary" className="h-6 px-2 text-xs">
-                  <NoteIcon size={12} className="mr-1" />
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px] leading-none py-0.5">
+                  <NoteIcon size={10} className="mr-0.5" />
                   {linkedNoteIds.length} {linkedNoteIds.length === 1 ? 'note' : 'notes'}
                 </Badge>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={onViewNotes}
-                  className="h-6 px-2 text-xs text-accent hover:text-accent"
+                  className="h-4 px-1 text-[10px] text-accent hover:text-accent"
                 >
                   View
                 </Button>
@@ -80,14 +80,14 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
               <Badge 
                 key={group.id}
                 variant="outline" 
-                className="h-6 px-2 text-xs"
+                className="h-4 px-1.5 text-[10px] leading-none py-0.5"
                 style={{ 
                   borderColor: group.color,
                   color: group.color
                 }}
               >
                 <div 
-                  className="w-2 h-2 rounded-full mr-1.5" 
+                  className="w-1.5 h-1.5 rounded-full mr-0.5" 
                   style={{ backgroundColor: group.color }}
                 />
                 {group.name}
@@ -95,12 +95,12 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-0.5 flex-wrap justify-end">
           {tags.map(tag => (
             <Badge 
               key={tag}
               variant="secondary"
-              className="h-6 px-2 text-xs group/tag"
+              className="h-4 px-1.5 text-[10px] leading-none py-0.5 group/tag"
             >
               #{tag}
               <button
@@ -108,23 +108,23 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
                   e.stopPropagation();
                   handleRemoveTag(tag);
                 }}
-                className="ml-1 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
               >
-                <XIcon size={10} />
+                <XIcon size={8} />
               </button>
             </Badge>
           ))}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-accent"
+                  className="h-6 w-6 text-muted-foreground hover:text-accent"
                   aria-label="Manage tags"
                   title="Manage tags"
                 >
-                  <TagIcon size={16} weight="fill" aria-hidden="true" />
+                  <TagIcon size={13} weight="fill" aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
             <PopoverContent className="w-64 p-3" align="end">
@@ -180,11 +180,11 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-accent"
+                className="h-6 w-6 text-muted-foreground hover:text-accent"
                 aria-label="Assign to groups"
                 title="Assign to groups"
               >
-                <FoldersIcon size={16} aria-hidden="true" />
+                <FoldersIcon size={13} aria-hidden="true" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 p-3" align="end">
@@ -222,21 +222,21 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
             variant="ghost"
             size="icon"
             onClick={onLinkNotes}
-            className="h-8 w-8 text-muted-foreground hover:text-accent"
+            className="h-6 w-6 text-muted-foreground hover:text-accent"
             aria-label="Link notes"
             title="Link notes"
           >
-            <LinkIcon size={16} aria-hidden="true" />
+            <LinkIcon size={13} aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={onDelete}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
             aria-label="Delete todo"
             title="Delete"
           >
-            <TrashIcon size={16} aria-hidden="true" />
+            <TrashIcon size={13} aria-hidden="true" />
           </Button>
           </div>
         </div>
