@@ -11,13 +11,13 @@ import ReactFlow, {
   MiniMap,
   Node,
   Panel,
+  Position,
   ReactFlowInstance,
   useEdgesState,
   useNodesState
 } from 'reactflow';
 import { Menu, Item, useContextMenu, ItemParams } from 'react-contexify';
 import 'react-contexify/dist/ReactContexify.css';
-import { Position } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ArrowLineRightIcon, FlowArrowIcon, GraphIcon, ListPlusIcon, MoonIcon, ShareNetworkIcon, TargetIcon, TreeStructureIcon, GoogleLogoIcon, SignOutIcon, SunIcon } from '@phosphor-icons/react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -83,7 +83,7 @@ function statusBadge(status: NodeStatus) {
   );
 }
 
-function WorkflowNode({ data }: { data: WorkflowNodeData }) {
+function WorkflowNode({ data }: Readonly<{ data: WorkflowNodeData }>) {
   const palette = statusPalette[data.status];
 
   return (
@@ -282,7 +282,7 @@ export function WorkflowBuilder() {
   const navigate = useNavigate();
   const { workflowId } = useParams<{ workflowId: string }>();
   const { theme, toggleTheme } = useTheme();
-  const { workflows, setWorkflows, dataMode } = useWorkflows();
+  const { setWorkflows, dataMode } = useWorkflows();
   const { todos } = useTodos();
 
   const [loadedWorkflow, setLoadedWorkflow] = useState<Workflow | null>(null);
@@ -446,6 +446,29 @@ export function WorkflowBuilder() {
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
+  // Helper function to update workflow in list
+  const buildUpdatedWorkflowList = useCallback(
+    (list: Workflow[] | null, sanitizedState: WorkflowState, workflowTodos: string[], now: number): Workflow[] => {
+      const existingWorkflow = (list || []).find((w) => w.id === workflowId);
+      const baseWorkflow: Workflow = {
+        id: workflowId || '',
+        name: meta.title || 'Untitled Workflow',
+        data: sanitizedState,
+        todos: workflowTodos,
+        createdAt: Date.now(),
+        updatedAt: now
+      };
+
+      if (existingWorkflow) {
+        return (list || []).map((w) =>
+          w.id === workflowId ? { ...w, ...baseWorkflow, updatedAt: now } : w
+        );
+      }
+      return [...(list || []), baseWorkflow];
+    },
+    [workflowId, meta.title]
+  );
+
   const defaultEdgeOptions = useMemo(() => ({
     style: { stroke: '#6366f1', strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1', width: 18, height: 18 }
@@ -497,42 +520,12 @@ export function WorkflowBuilder() {
     // Use a timeout to debounce saves and prevent infinite loops
     const timeoutId = setTimeout(async () => {
       console.log('Saving workflow:', workflowId, 'with', sanitizedState.nodes.length, 'nodes and', sanitizedState.edges.length, 'edges');
-      await setWorkflows((list) => {
-        const existingWorkflow = (list || []).find((w) => w.id === workflowId);
-        
-        if (existingWorkflow) {
-          // Update existing workflow
-          return (list || []).map((w) =>
-            w.id === workflowId
-              ? {
-                ...w,
-                name: meta.title || 'Untitled Workflow',
-                data: sanitizedState,
-                updatedAt: now,
-                todos: workflowTodos
-              }
-              : w
-          );
-        } else {
-          // Create new workflow if it doesn't exist
-          return [
-            ...(list || []),
-            {
-              id: workflowId,
-              name: meta.title || 'Untitled Workflow',
-              data: sanitizedState,
-              createdAt: now,
-              updatedAt: now,
-              todos: workflowTodos
-            }
-          ];
-        }
-      });
+      await setWorkflows((list) => buildUpdatedWorkflowList(list, sanitizedState, workflowTodos, now));
       console.log('Workflow save completed');
     }, 300); // Increased debounce time to 300ms
 
     return () => clearTimeout(timeoutId);
-  }, [meta, nodes, edges, workflowId, isInitialized, setWorkflows]);
+  }, [meta, nodes, edges, workflowId, isInitialized, setWorkflows, buildUpdatedWorkflowList]);
 
   useEffect(() => {
     if (!selectedNode && nodes.length > 0) {
@@ -623,36 +616,7 @@ export function WorkflowBuilder() {
       const now = Date.now();
       const sanitizedState = sanitizeWorkflowState({ meta, nodes: updatedNodes, edges, lastSaved: now });
       const workflowTodos = Array.from(new Set(sanitizedState.nodes.flatMap((n) => n.data.todos || [])));
-
-      await setWorkflows((list) => {
-        const existingWorkflow = (list || []).find((w) => w.id === workflowId);
-        
-        if (existingWorkflow) {
-          return (list || []).map((w) =>
-            w.id === workflowId
-              ? {
-                ...w,
-                name: meta.title || 'Untitled Workflow',
-                data: sanitizedState,
-                updatedAt: now,
-                todos: workflowTodos
-              }
-              : w
-          );
-        } else {
-          return [
-            ...(list || []),
-            {
-              id: workflowId,
-              name: meta.title || 'Untitled Workflow',
-              data: sanitizedState,
-              createdAt: now,
-              updatedAt: now,
-              todos: workflowTodos
-            }
-          ];
-        }
-      });
+      await setWorkflows((list) => buildUpdatedWorkflowList(list, sanitizedState, workflowTodos, now));
     }
   }, [newNodeDraft.color, newNodeDraft.context, newNodeDraft.owner, newNodeDraft.status, newNodeDraft.tags, newNodeDraft.title, reactFlowInstance, setNodes, nodes, workflowId, meta, edges, setWorkflows]);
 
@@ -664,21 +628,24 @@ export function WorkflowBuilder() {
     [selectedNodeId, setNodes]
   );
 
+  const updateTodoInNode = useCallback(
+    (n: Node<WorkflowNodeData>, todoId: string): Node<WorkflowNodeData> => {
+      if (n.id !== selectedNodeId) return n;
+      const currentTodos = n.data.todos || [];
+      const nextTodos = currentTodos.includes(todoId)
+        ? currentTodos.filter((id) => id !== todoId)
+        : [...currentTodos, todoId];
+      return { ...n, data: { ...n.data, todos: nextTodos } };
+    },
+    [selectedNodeId]
+  );
+
   const toggleTodoForSelectedNode = useCallback(
     (todoId: string) => {
       if (!selectedNodeId) return;
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id !== selectedNodeId) return n;
-          const currentTodos = n.data.todos || [];
-          const nextTodos = currentTodos.includes(todoId)
-            ? currentTodos.filter((id) => id !== todoId)
-            : [...currentTodos, todoId];
-          return { ...n, data: { ...n.data, todos: nextTodos } };
-        })
-      );
+      setNodes((nds) => nds.map((n) => updateTodoInNode(n, todoId)));
     },
-    [selectedNodeId, setNodes]
+    [selectedNodeId, setNodes, updateTodoInNode]
   );
 
   const startResizingSidebar = useCallback(() => {
@@ -699,14 +666,46 @@ export function WorkflowBuilder() {
   }, []);
 
   useEffect(() => {
-    window.addEventListener('mousemove', resizeSidebar);
-    window.addEventListener('mouseup', stopResizing);
+    globalThis.addEventListener('mousemove', resizeSidebar);
+    globalThis.addEventListener('mouseup', stopResizing);
     return () => {
-      window.removeEventListener('mousemove', resizeSidebar);
-      window.removeEventListener('mouseup', stopResizing);
+      globalThis.removeEventListener('mousemove', resizeSidebar);
+      globalThis.removeEventListener('mouseup', stopResizing);
     };
   }, [resizeSidebar, stopResizing]);
 
+  // Helper to determine auth button
+  const getAuthButton = () => {
+    if (user) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={signOut}
+          disabled={actionLoading}
+        >
+          <SignOutIcon size={18} className="mr-1" />
+          Sign out
+        </Button>
+      );
+    }
+    if (isSkipped) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={signInWithGoogle}
+          disabled={actionLoading}
+        >
+          <GoogleLogoIcon size={18} className="mr-1" />
+          Sign in
+        </Button>
+      );
+    }
+    return null;
+  };
+
+  const authButton = getAuthButton();
 
   // Show 404 if workflow not found
   if (workflowNotFound && !isLoadingWorkflow) {
@@ -808,27 +807,7 @@ export function WorkflowBuilder() {
                 {user.email}
               </div>
             )}
-            {user ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={signOut}
-                disabled={actionLoading}
-              >
-                <SignOutIcon size={18} className="mr-1" />
-                Sign out
-              </Button>
-            ) : isSkipped ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={signInWithGoogle}
-                disabled={actionLoading}
-              >
-                <GoogleLogoIcon size={18} className="mr-1" />
-                Sign in
-              </Button>
-            ) : null}
+            {authButton}
           </div>
         </div>
       </header>
@@ -1017,9 +996,11 @@ export function WorkflowBuilder() {
             </div>
           </ScrollArea>
         </div>
-        <div
-          className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors shrink-0"
+        <button
+          className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-primary"
           onMouseDown={startResizingSidebar}
+          aria-label="Resize sidebar"
+          type="button"
         />
         <div className="flex-1 w-full h-full min-h-0 bg-gradient-to-br from-background via-background to-accent/5">
           <ReactFlow
