@@ -430,6 +430,7 @@ export function WorkflowBuilder() {
   const [sidebarWidth, setSidebarWidth] = useState(384);
   const isResizingSidebar = useRef(false);
   const { show } = useContextMenu<{ edgeId: string }>({ id: 'edge-menu' });
+  const { show: showNodeMenu } = useContextMenu<{ nodeId: string }>({ id: 'node-menu' });
   const lastSavedStateRef = useRef<string>('');
   const activeTodos = useMemo(() => (todos || []).filter((t) => !t.deletedAt), [todos]);
 
@@ -559,6 +560,21 @@ export function WorkflowBuilder() {
     setSelectedEdgeId(edge.id);
     show({ event, props: { edgeId: edge.id } });
   }, [show]);
+
+  const deleteNodeById = useCallback((id: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== id));
+    setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+    if (selectedNodeId === id) {
+      setSelectedNodeId(null);
+    }
+    toast.success('Node deleted');
+  }, [selectedNodeId, setNodes, setEdges]);
+
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node<WorkflowNodeData>) => {
+    event.preventDefault();
+    setSelectedNodeId(node.id);
+    showNodeMenu({ event, props: { nodeId: node.id } });
+  }, [showNodeMenu]);
 
   const addNode = useCallback(async () => {
     if (!newNodeDraft.title.trim()) {
@@ -815,7 +831,7 @@ export function WorkflowBuilder() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Workflow overview</p>
-                    <h2 className="text-lg font-semibold">{meta.title}</h2>
+                    {/* Title is editable below; avoid duplicate heading display */}
                   </div>
                   <Badge variant="outline" className="gap-1">
                     <ShareNetworkIcon size={14} />
@@ -1010,6 +1026,7 @@ export function WorkflowBuilder() {
             defaultEdgeOptions={defaultEdgeOptions}
             onInit={handleInit}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onNodeContextMenu={handleNodeContextMenu}
             proOptions={{ hideAttribution: true }}
             className=""
           >
@@ -1047,6 +1064,11 @@ export function WorkflowBuilder() {
             <Menu id="edge-menu" className="text-sm">
               <Item onClick={(params: ItemParams<{ edgeId: string }>) => params.props?.edgeId && deleteEdge(params.props.edgeId)}>
                 Delete edge
+              </Item>
+            </Menu>
+            <Menu id="node-menu" className="text-sm">
+              <Item onClick={(params: ItemParams<{ nodeId: string }>) => params.props?.nodeId && deleteNodeById(params.props.nodeId)}>
+                Delete node
               </Item>
             </Menu>
           </ReactFlow>
