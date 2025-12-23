@@ -5,8 +5,8 @@ export function useTheme() {
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme-preference', 'light');
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    root.setAttribute('data-appearance', theme || 'light');
+    const root = globalThis.document.documentElement;
+    root.dataset.appearance = theme || 'light';
   }, [theme]);
 
   const toggleTheme = () => {

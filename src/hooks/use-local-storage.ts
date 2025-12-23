@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
 
-const isBrowser = typeof window !== 'undefined';
+const isBrowser = typeof globalThis.window !== 'undefined';
 
 function readValue<T>(key: string, fallback: T): T {
   if (!isBrowser) {
@@ -8,8 +8,8 @@ function readValue<T>(key: string, fallback: T): T {
   }
 
   try {
-    const storedValue = window.localStorage.getItem(key);
-    return storedValue !== null ? (JSON.parse(storedValue) as T) : fallback;
+    const storedValue = globalThis.localStorage.getItem(key);
+    return storedValue === null ? fallback : (JSON.parse(storedValue) as T);
   } catch (error) {
     console.warn(`Unable to read "${key}" from localStorage.`, error);
     return fallback;
@@ -31,7 +31,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<S
 
       if (isBrowser) {
         try {
-          window.localStorage.setItem(key, JSON.stringify(nextValue));
+          globalThis.localStorage.setItem(key, JSON.stringify(nextValue));
         } catch (error) {
           console.warn(`Unable to persist "${key}" to localStorage.`, error);
         }
@@ -47,7 +47,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<S
     }
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.storageArea !== window.localStorage || event.key !== key) {
+      if (event.storageArea !== globalThis.localStorage || event.key !== key) {
         return;
       }
 
@@ -64,8 +64,8 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<S
       }
     };
 
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    globalThis.addEventListener('storage', handleStorage);
+    return () => globalThis.removeEventListener('storage', handleStorage);
   }, [key]);
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useSearchParams } from 'react-router-dom';
@@ -8,12 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon, DownloadSimple, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
+import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon } from '@phosphor-icons/react';
 import { TodoCard } from '@/components/TodoCard';
 import { NoteLinkDialog } from '@/components/NoteLinkDialog';
 import { LinkedNotesView } from '@/components/LinkedNotesView';
 import { NotePreviewPanel } from '@/components/NotePreviewPanel';
-import { Todo, Note, TodoGroup } from '@/lib/types';
+import { Todo, TodoGroup } from '@/lib/types';
 import { useTodoGroups, useNotes, useTodos } from '@/hooks/use-data-sync';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabaseClient';
@@ -25,7 +26,7 @@ interface TodoAppProps {
     onNavigateToNote: (noteId: string) => void;
 }
 
-export function TodoApp({ onNavigateToNote }: TodoAppProps) {
+export function TodoApp({ onNavigateToNote }: Readonly<TodoAppProps>) {
     const { user } = useAuth();
     const { notes: notesData } = useNotes();
     const { todos: todosData, setTodos } = useTodos();
@@ -82,7 +83,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     const filterTodosByTag = useCallback((todoList: Todo[]) => {
         if (!selectedTagFilter) return todoList;
         return todoList.filter(todo => 
-            todo.tags && todo.tags.includes(selectedTagFilter)
+            todo.tags?.includes(selectedTagFilter)
         );
     }, [selectedTagFilter]);
 
@@ -121,11 +122,16 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
             groups.get(dateKey)!.push(todo);
         });
 
-        return Array.from(groups.entries()).map(([date, todos]) => ({
-            date,
-            todos: todos.sort((a, b) => b.createdAt - a.createdAt),
-            timestamp: todos[0].createdAt
-        })).sort((a, b) => b.timestamp - a.timestamp);
+        return Array.from(groups.entries())
+            .map(([date, list]) => {
+                const sortedTodos = [...list].sort((a, b) => b.createdAt - a.createdAt);
+                return {
+                    date,
+                    todos: sortedTodos,
+                    timestamp: sortedTodos[0].createdAt
+                };
+            })
+            .sort((a, b) => b.timestamp - a.timestamp);
     }, []);
 
     const incompleteTodos = useMemo(() => {
@@ -155,7 +161,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     const linkedNotesForViewing = useMemo(() => {
         if (!viewingNotesForTodo || !notes) return [];
         const todo = todos?.find(t => t.id === viewingNotesForTodo);
-        if (!todo || !todo.linkedNoteIds) return [];
+        if (!todo?.linkedNoteIds) return [];
         return notes.filter(note =>
             todo.linkedNoteIds.includes(note.id) && !note.deletedAt
         );
@@ -321,14 +327,29 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         isResizingPreview.current = false;
     }, []);
 
+    const removeGroupFromTodo = useCallback((todo: Todo, groupId: string): Todo => ({
+        ...todo,
+        groupIds: (todo.groupIds || []).filter(id => id !== groupId)
+    }), []);
+
+    const toggleGroupAssignment = useCallback((todo: Todo, groupId: string): Todo => {
+        const groupIds = todo.groupIds || [];
+        const hasGroup = groupIds.includes(groupId);
+        return {
+            ...todo,
+            groupIds: hasGroup ? groupIds.filter(id => id !== groupId) : [...groupIds, groupId],
+            updatedAt: Date.now()
+        };
+    }, []);
+
     const resize = useCallback((e: MouseEvent) => {
         if (isResizingLinkedNotes.current) {
-            const newWidth = window.innerWidth - e.clientX;
+            const newWidth = globalThis.innerWidth - e.clientX;
             if (newWidth >= 300 && newWidth <= 600) {
                 setLinkedNotesWidth(newWidth);
             }
         } else if (isResizingPreview.current) {
-            const newWidth = window.innerWidth - e.clientX;
+            const newWidth = globalThis.innerWidth - e.clientX;
             if (newWidth >= 300 && newWidth <= 700) {
                 setPreviewPanelWidth(newWidth);
             }
@@ -336,11 +357,11 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     }, []);
 
     useEffect(() => {
-        window.addEventListener('mousemove', resize);
-        window.addEventListener('mouseup', stopResizing);
+        globalThis.addEventListener('mousemove', resize);
+        globalThis.addEventListener('mouseup', stopResizing);
         return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            globalThis.removeEventListener('mousemove', resize);
+            globalThis.removeEventListener('mouseup', stopResizing);
         };
     }, [resize, stopResizing]);
 
@@ -367,17 +388,14 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
     const deleteGroup = useCallback((groupId: string) => {
         setGroups(current => (current || []).filter(g => g.id !== groupId));
         setTodos(current =>
-            (current || []).map(todo => ({
-                ...todo,
-                groupIds: (todo.groupIds || []).filter(id => id !== groupId)
-            }))
+            (current || []).map(todo => removeGroupFromTodo(todo, groupId))
         );
         setDeleteGroupId(null);
         if (activeTabValue === groupId) {
             setActiveTabValue('all');
         }
         toast.success('Group deleted');
-    }, [setGroups, setTodos, activeTabValue]);
+    }, [setGroups, setTodos, activeTabValue, removeGroupFromTodo]);
 
     const startEditGroup = useCallback((group: TodoGroup) => {
         setEditingGroupId(group.id);
@@ -414,18 +432,10 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         setTodos(current =>
             (current || []).map(todo => {
                 if (todo.id !== todoId) return todo;
-                const groupIds = todo.groupIds || [];
-                const hasGroup = groupIds.includes(groupId);
-                return {
-                    ...todo,
-                    groupIds: hasGroup
-                        ? groupIds.filter(id => id !== groupId)
-                        : [...groupIds, groupId],
-                    updatedAt: Date.now()
-                };
+                return toggleGroupAssignment(todo, groupId);
             })
         );
-    }, [setTodos]);
+    }, [setTodos, toggleGroupAssignment]);
 
     const updateTodoTags = useCallback((todoId: string, tags: string[]) => {
         setTodos(current =>
@@ -454,7 +464,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
     // Request notification permission on mount
     useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
+        if ('Notification' in globalThis && Notification.permission === 'default') {
             Notification.requestPermission();
         }
     }, []);
@@ -476,7 +486,6 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
         const handleMessage = (event: MessageEvent) => {
             if (event.data.type === 'COMPLETE_TODO') {
-                // Mark todo as complete when user clicks notification action
                 toggleTodo(event.data.todoId);
             }
         };
@@ -524,7 +533,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                 todo.tags.forEach(tag => tagSet.add(tag));
             }
         });
-        return Array.from(tagSet).sort();
+        return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
     }, [todos]);
 
     // Set initial tab from query param
@@ -550,52 +559,58 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         }
     }, [initialGroup, customGroups]);
 
+    const resolveGroupName = useCallback((value: string) => {
+        if (value === 'all' || value === 'active' || value === 'completed') {
+            return value;
+        }
+        const group = customGroups.find(g => g.id === value);
+        return group ? group.name : value;
+    }, [customGroups]);
+
+    const getGroupNamesForTodo = useCallback((todo: Todo) => {
+        if (!todo.groupIds?.length) return [];
+        return todo.groupIds
+            .map(id => customGroups.find(g => g.id === id)?.name)
+            .filter(Boolean) as string[];
+    }, [customGroups]);
+
     // Sync URL query param when tab changes (only for user interactions)
     useEffect(() => {
-        if (activeTabValue && !isSettingFromUrl.current) {
-            const currentGroup = searchParams.get('todoGroup');
-            
-            // Find the group name for custom groups, or use the tab value
-            let groupName = activeTabValue;
-            if (activeTabValue !== 'all' && activeTabValue !== 'active' && activeTabValue !== 'completed') {
-                const group = customGroups.find(g => g.id === activeTabValue);
-                if (group) {
-                    groupName = group.name;
-                }
-            }
+        if (!activeTabValue || isSettingFromUrl.current) return;
 
-            // Only update if the value is actually different
-            const shouldUpdate = activeTabValue === 'all' 
-                ? currentGroup !== null
-                : currentGroup?.toLowerCase() !== groupName.toLowerCase();
+        const currentGroup = searchParams.get('todoGroup');
+        const groupName = resolveGroupName(activeTabValue);
 
-            if (shouldUpdate) {
-                const params = new URLSearchParams(searchParams);
-                if (groupName !== 'all') {
-                    params.set('todoGroup', groupName);
-                } else {
-                    params.delete('todoGroup');
-                }
-                setSearchParams(params, { replace: true });
-            }
+        const shouldUpdate = activeTabValue === 'all'
+            ? currentGroup !== null
+            : currentGroup?.toLowerCase() !== groupName.toLowerCase();
+
+        if (!shouldUpdate) return;
+
+        const params = new URLSearchParams(searchParams);
+        if (groupName === 'all') {
+            params.delete('todoGroup');
+        } else {
+            params.set('todoGroup', groupName);
         }
-    }, [activeTabValue, customGroups, searchParams, setSearchParams]);
+        setSearchParams(params, { replace: true });
+    }, [activeTabValue, resolveGroupName, searchParams, setSearchParams]);
 
     const getTodosForGroup = useCallback((groupId: string) => {
         if (!todos) return [];
-        const groupTodos = todos.filter(todo =>
-            !todo.deletedAt && (todo.groupIds || []).includes(groupId)
-        ).sort((a, b) => b.createdAt - a.createdAt);
+        const groupTodos = todos
+            .filter(todo => !todo.deletedAt && (todo.groupIds || []).includes(groupId))
+            .sort((a, b) => b.createdAt - a.createdAt);
         return filterTodosByTag(groupTodos);
     }, [todos, selectedTagFilter]);
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             createTodo();
         }
     };
 
-    const handleGroupKeyPress = (e: React.KeyboardEvent) => {
+    const handleGroupKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             createGroup();
         }
@@ -603,7 +618,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
     const downloadTodos = useCallback(() => {
         let todosToExport: Todo[] = [];
-        let filename = 'todos.txt';
+        let filename: string;
 
         // Determine which todos to export based on active tab
         if (activeTabValue === 'all') {
@@ -619,7 +634,9 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
             // Custom group
             todosToExport = getTodosForGroup(activeTabValue);
             const group = customGroups.find(g => g.id === activeTabValue);
-            filename = group ? `${group.name.toLowerCase().replace(/\s+/g, '-')}-todos.txt` : 'group-todos.txt';
+            filename = group
+                ? `${group.name.toLowerCase().trim().split(/\s+/).join('-')}-todos.txt`
+                : 'group-todos.txt';
         }
 
         if (todosToExport.length === 0) {
@@ -641,9 +658,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
             }
             
             if (todo.groupIds && todo.groupIds.length > 0) {
-                const groupNames = todo.groupIds
-                    .map(gId => customGroups.find(g => g.id === gId)?.name)
-                    .filter(Boolean);
+                const groupNames = getGroupNamesForTodo(todo);
                 if (groupNames.length > 0) {
                     content += `   Groups: ${groupNames.join(', ')}\n`;
                 }
@@ -665,11 +680,36 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
         link.download = filename;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(url);
         
         toast.success(`Exported ${todosToExport.length} todo(s) to ${filename}`);
-    }, [activeTabValue, allTodos, incompleteTodos, completedTodos, getTodosForGroup, customGroups]);
+    }, [activeTabValue, allTodos, incompleteTodos, completedTodos, getTodosForGroup, getGroupNamesForTodo]);
+
+    const buildTodoHandlers = useCallback((todo: Todo) => ({
+        onToggle: () => toggleTodo(todo.id),
+        onDelete: (e: React.MouseEvent) => {
+            e.stopPropagation();
+            deleteTodo(todo.id);
+        },
+        onLinkNotes: () => openLinkDialog(todo.id),
+        onViewNotes: () => handleViewNotes(todo.id),
+        onToggleGroup: (groupId: string) => toggleTodoGroup(todo.id, groupId),
+        onUpdateTags: (tags: string[]) => updateTodoTags(todo.id, tags),
+        onUpdateDueDate: (dueDate: number | undefined) => updateTodoDueDate(todo.id, dueDate)
+    }), [deleteTodo, handleViewNotes, openLinkDialog, toggleTodo, toggleTodoGroup, updateTodoDueDate, updateTodoTags]);
+
+    const renderTodoCard = useCallback((todo: Todo) => {
+        const handlers = buildTodoHandlers(todo);
+        return (
+            <TodoCard
+                key={todo.id}
+                todo={todo}
+                groups={customGroups}
+                {...handlers}
+            />
+        );
+    }, [buildTodoHandlers, customGroups]);
 
     return (
         <div className={`flex flex-col bg-background overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'flex-1 w-full'}`}>
@@ -684,7 +724,6 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                             onClick={downloadTodos}
                             title="Download current todos as text file"
                         >
-                            <DownloadSimple size={18} className="mr-1" />
                             Export
                         </Button>
                         <Button
@@ -791,7 +830,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                 placeholder="What needs to be done?"
                                 value={newTodoTitle}
                                 onChange={(e) => setNewTodoTitle(e.target.value)}
-                                onKeyPress={handleKeyPress}
+                                onKeyDown={handleKeyDown}
                                 className="flex-1 h-9"
                             />
                             <Button onClick={createTodo} className="bg-accent hover:bg-accent/90 h-9">
@@ -867,7 +906,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                 title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                                 className="absolute top-2 right-4 z-50 h-10 w-10 rounded-full shadow-lg bg-card/95 backdrop-blur-sm hover:bg-card"
                             >
-                                {isFullscreen ? <ArrowsIn size={20} /> : <ArrowsOut size={20} />}
+                                {isFullscreen ? 'Exit' : 'Fullscreen'}
                             </Button>
                             <ScrollArea className="h-full">
                                 <div className="px-6 py-4 space-y-4">
@@ -884,23 +923,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                     {date}
                                                 </h3>
                                                 <div className="space-y-2">
-                                                    {todos.map(todo => (
-                                                        <TodoCard
-                                                            key={todo.id}
-                                                            todo={todo}
-                                                            groups={customGroups}
-                                                            onToggle={() => toggleTodo(todo.id)}
-                                                            onDelete={(e) => {
-                                                                e.stopPropagation();
-                                                                deleteTodo(todo.id);
-                                                            }}
-                                                            onLinkNotes={() => openLinkDialog(todo.id)}
-                                                            onViewNotes={() => handleViewNotes(todo.id)}
-                                                            onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
-                                                            onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
-                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
-                                                        />
-                                                    ))}
+                                                    {todos.map(renderTodoCard)}
                                                 </div>
                                             </div>
                                         ))
@@ -925,23 +948,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                     {date}
                                                 </h3>
                                                 <div className="space-y-2">
-                                                    {todos.map(todo => (
-                                                        <TodoCard
-                                                            key={todo.id}
-                                                            todo={todo}
-                                                            groups={customGroups}
-                                                            onToggle={() => toggleTodo(todo.id)}
-                                                            onDelete={(e) => {
-                                                                e.stopPropagation();
-                                                                deleteTodo(todo.id);
-                                                            }}
-                                                            onLinkNotes={() => openLinkDialog(todo.id)}
-                                                            onViewNotes={() => handleViewNotes(todo.id)}
-                                                            onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
-                                                            onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
-                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
-                                                        />
-                                                    ))}
+                                                    {todos.map(renderTodoCard)}
                                                 </div>
                                             </div>
                                         ))
@@ -966,23 +973,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                     {date}
                                                 </h3>
                                                 <div className="space-y-2">
-                                                    {todos.map(todo => (
-                                                        <TodoCard
-                                                            key={todo.id}
-                                                            todo={todo}
-                                                            groups={customGroups}
-                                                            onToggle={() => toggleTodo(todo.id)}
-                                                            onDelete={(e) => {
-                                                                e.stopPropagation();
-                                                                deleteTodo(todo.id);
-                                                            }}
-                                                            onLinkNotes={() => openLinkDialog(todo.id)}
-                                                            onViewNotes={() => handleViewNotes(todo.id)}
-                                                            onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
-                                                            onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
-                                                            onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
-                                                        />
-                                                    ))}
+                                                    {todos.map(renderTodoCard)}
                                                 </div>
                                             </div>
                                         ))
@@ -1008,23 +999,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                         {date}
                                                     </h3>
                                                     <div className="space-y-2">
-                                                        {todos.map(todo => (
-                                                            <TodoCard
-                                                                key={todo.id}
-                                                                todo={todo}
-                                                                groups={customGroups}
-                                                                onToggle={() => toggleTodo(todo.id)}
-                                                                onDelete={(e) => {
-                                                                    e.stopPropagation();
-                                                                    deleteTodo(todo.id);
-                                                                }}
-                                                                onLinkNotes={() => openLinkDialog(todo.id)}
-                                                                onViewNotes={() => handleViewNotes(todo.id)}
-                                                                onToggleGroup={(groupId) => toggleTodoGroup(todo.id, groupId)}
-                                                                onUpdateTags={(tags) => updateTodoTags(todo.id, tags)}
-                                                                onUpdateDueDate={(dueDate) => updateTodoDueDate(todo.id, dueDate)}
-                                                            />
-                                                        ))}
+                                                            {todos.map(renderTodoCard)}
                                                     </div>
                                                 </div>
                                             ))
@@ -1038,9 +1013,17 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
                 {viewingNotesForTodo && (
                     <>
-                        <div
+                        <button
+                            type="button"
                             className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors shrink-0"
+                            aria-label="Resize linked notes panel"
                             onMouseDown={startResizingLinkedNotes}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    startResizingLinkedNotes();
+                                }
+                            }}
                         />
                         <div
                             className="shrink-0 overflow-hidden"
@@ -1058,9 +1041,17 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
 
                 {previewNoteId && (
                     <>
-                        <div
+                        <button
+                            type="button"
                             className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors shrink-0"
+                            aria-label="Resize note preview panel"
                             onMouseDown={startResizingPreview}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    startResizingPreview();
+                                }
+                            }}
                         />
                         <div
                             className="shrink-0 overflow-hidden"
@@ -1125,7 +1116,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                     placeholder="Group name..."
                                     value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
-                                    onKeyPress={handleGroupKeyPress}
+                                    onKeyDown={handleGroupKeyDown}
                                     className="flex-1"
                                 />
                                 <input
@@ -1168,7 +1159,7 @@ export function TodoApp({ onNavigateToNote }: TodoAppProps) {
                                                             <Input
                                                                 value={editGroupName}
                                                                 onChange={(e) => setEditGroupName(e.target.value)}
-                                                                onKeyPress={(e) => {
+                                                                    onKeyDown={(e) => {
                                                                     if (e.key === 'Enter') saveEditGroup();
                                                                     if (e.key === 'Escape') cancelEditGroup();
                                                                 }}

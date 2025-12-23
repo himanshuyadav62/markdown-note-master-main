@@ -5,7 +5,7 @@ interface MarkdownPreviewProps {
   content: string;
 }
 
-export function MarkdownPreview({ content }: MarkdownPreviewProps) {
+export function MarkdownPreview({ content }: Readonly<MarkdownPreviewProps>) {
   const [html, setHtml] = useState('');
 
   useEffect(() => {

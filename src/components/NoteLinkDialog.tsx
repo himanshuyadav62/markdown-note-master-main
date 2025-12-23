@@ -15,7 +15,7 @@ interface NoteLinkDialogProps {
   onSave: (noteIds: string[]) => void;
 }
 
-export function NoteLinkDialog({ open, onOpenChange, notes, selectedNoteIds, onSave }: NoteLinkDialogProps) {
+export function NoteLinkDialog({ open, onOpenChange, notes, selectedNoteIds, onSave }: Readonly<NoteLinkDialogProps>) {
   const [tempSelectedIds, setTempSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -82,9 +82,10 @@ export function NoteLinkDialog({ open, onOpenChange, notes, selectedNoteIds, onS
             ) : (
               <div className="space-y-3">
                 {filteredNotes.map(note => (
-                  <div 
+                  <button
                     key={note.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/10 cursor-pointer"
+                    type="button"
+                    className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-accent/10 cursor-pointer text-left"
                     onClick={() => handleToggleNote(note.id)}
                   >
                     <Checkbox
@@ -98,7 +99,7 @@ export function NoteLinkDialog({ open, onOpenChange, notes, selectedNoteIds, onS
                         {note.content.replace(/<[^>]*>/g, '').substring(0, 100)}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

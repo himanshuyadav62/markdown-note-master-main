@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { NotePencilIcon, CheckCircleIcon, MoonIcon, SunIcon, ShareNetwork, GoogleLogo, SignOut, ListIcon } from '@phosphor-icons/react';
+import { NotePencilIcon, CheckCircleIcon, MoonIcon, SunIcon, GoogleLogoIcon, ShareNetworkIcon, SignOutIcon } from '@phosphor-icons/react';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/providers/AuthProvider';
 import { NotesApp } from '@/components/NotesApp';
@@ -10,11 +10,13 @@ import { TodoApp } from '@/components/TodoApp';
 import { WorkflowsHome } from '@/components/WorkflowsHome';
 import { toast } from 'sonner';
 
+type ActiveTab = 'notes' | 'todos' | 'workflows';
+
 function AppLayout() {
   const { user, loading: authLoading, actionLoading, isSkipped, signInWithGoogle, signOut, skipLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'notes' | 'todos' | 'workflows'>('notes');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('notes');
   const { theme, toggleTheme } = useTheme();
 
   // Sync tab based on current location
@@ -35,7 +37,7 @@ function AppLayout() {
     toast.success(`Opened note`);
   }, [navigate]);
 
-  const handleTabChange = (tab: 'notes' | 'todos' | 'workflows') => {
+  const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     if (tab === 'todos') {
       navigate('/todos');
@@ -69,7 +71,7 @@ function AppLayout() {
             disabled={actionLoading}
             className="w-full bg-accent hover:bg-accent/90"
           >
-            <GoogleLogo size={18} className="mr-2" />
+            <GoogleLogoIcon size={18} className="mr-2" />
             Continue with Google
           </Button>
           <div className="relative">
@@ -112,7 +114,7 @@ function AppLayout() {
                   Todos
                 </TabsTrigger>
                 <TabsTrigger value="workflows">
-                  <ShareNetwork size={18} className="mr-1" aria-hidden="true" />
+                  <ShareNetworkIcon size={18} className="mr-1" aria-hidden="true" />
                   Workflows
                 </TabsTrigger>
               </TabsList>
@@ -133,39 +135,36 @@ function AppLayout() {
                 {user.email}
               </div>
             )}
-            {user ? (
+            {user && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={signOut}
                 disabled={actionLoading}
               >
-                <SignOut size={18} className="mr-1" />
+                <SignOutIcon size={18} className="mr-1" />
                 Sign out
               </Button>
-            ) : isSkipped ? (
+            )}
+            {!user && isSkipped && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={signInWithGoogle}
                 disabled={actionLoading}
               >
-                <GoogleLogo size={18} className="mr-1" />
+                <GoogleLogoIcon size={18} className="mr-1" />
                 Sign in
               </Button>
-            ) : null}
+            )}
           </div>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {activeTab === 'notes' ? (
-          <NotesApp />
-        ) : activeTab === 'todos' ? (
-          <TodoApp onNavigateToNote={navigateToNote} />
-        ) : (
-          <WorkflowsHome />
-        )}
+        {activeTab === 'notes' && <NotesApp />}
+        {activeTab === 'todos' && <TodoApp onNavigateToNote={navigateToNote} />}
+        {activeTab === 'workflows' && <WorkflowsHome />}
       </div>
     </div>
   );

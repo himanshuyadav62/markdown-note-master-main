@@ -30,7 +30,53 @@ interface RichTextEditorProps {
   placeholder?: string;
 }
 
-export function RichTextEditor({ content, onChange, placeholder }: RichTextEditorProps) {
+const handleImagePaste = (editor: any, items: DataTransferItemList | undefined) => {
+  if (!items) return false;
+
+  for (const element of items) {
+    if (element.type.includes('image')) {
+      const file = element.getAsFile();
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const src = e.target?.result as string;
+          if (editor) {
+            editor.chain().focus().setImage({ src }).run();
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+      return true;
+    }
+  }
+  return false;
+};
+
+const handleImageDrop = (view: any, editor: any, files: FileList | undefined, clientX: number, clientY: number) => {
+  if (!files || files.length === 0) return false;
+
+  const file = files[0];
+  if (file.type.includes('image')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const src = e.target?.result as string;
+      if (editor) {
+        const { schema } = view.state;
+        const coordinates = view.posAtCoords({ left: clientX, top: clientY });
+        if (coordinates) {
+          const node = schema.nodes.image.create({ src });
+          const transaction = view.state.tr.insert(coordinates.pos, node);
+          view.dispatch(transaction);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    return true;
+  }
+  return false;
+};
+
+export function RichTextEditor({ content, onChange, placeholder }: Readonly<RichTextEditorProps>) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -68,52 +114,12 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
         class: 'prose prose-sm max-w-none focus:outline-none'
       },
       handlePaste: (view, event) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
-
-        for (let i = 0; i < items.length; i++) {
-          if (items[i].type.indexOf('image') !== -1) {
-            event.preventDefault();
-            const file = items[i].getAsFile();
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const src = e.target?.result as string;
-                if (editor) {
-                  editor.chain().focus().setImage({ src }).run();
-                }
-              };
-              reader.readAsDataURL(file);
-            }
-            return true;
-          }
-        }
-        return false;
+        event.preventDefault();
+        return handleImagePaste(editor, event.clipboardData?.items);
       },
       handleDrop: (view, event) => {
-        const files = event.dataTransfer?.files;
-        if (!files || files.length === 0) return false;
-
-        const file = files[0];
-        if (file.type.indexOf('image') !== -1) {
-          event.preventDefault();
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const src = e.target?.result as string;
-            if (editor) {
-              const { schema } = view.state;
-              const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-              if (coordinates) {
-                const node = schema.nodes.image.create({ src });
-                const transaction = view.state.tr.insert(coordinates.pos, node);
-                view.dispatch(transaction);
-              }
-            }
-          };
-          reader.readAsDataURL(file);
-          return true;
-        }
-        return false;
+        event.preventDefault();
+        return handleImageDrop(view, editor, event.dataTransfer?.files, event.clientX, event.clientY);
       }
     },
     onUpdate: ({ editor }) => {
@@ -151,7 +157,7 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
 
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('Enter URL:', previousUrl);
+    const url = globalThis.prompt('Enter URL:', previousUrl);
 
     if (url === null) {
       return;
@@ -165,148 +171,170 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const renderFormattingToolbar = () => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={editor.isActive('bold') ? 'bg-accent/20' : ''}
+      >
+        <TextBIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={editor.isActive('italic') ? 'bg-accent/20' : ''}
+      >
+        <TextItalicIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={editor.isActive('underline') ? 'bg-accent/20' : ''}
+      >
+        <TextUnderlineIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        className={editor.isActive('strike') ? 'bg-accent/20' : ''}
+      >
+        <TextStrikethroughIcon size={18} />
+      </Button>
+    </>
+  );
+
+  const renderHeadingToolbar = () => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={editor.isActive('heading', { level: 1 }) ? 'bg-accent/20' : ''}
+      >
+        H1
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={editor.isActive('heading', { level: 2 }) ? 'bg-accent/20' : ''}
+      >
+        H2
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={editor.isActive('heading', { level: 3 }) ? 'bg-accent/20' : ''}
+      >
+        H3
+      </Button>
+    </>
+  );
+
+  const renderListToolbar = () => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={editor.isActive('bulletList') ? 'bg-accent/20' : ''}
+      >
+        <ListBulletsIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={editor.isActive('orderedList') ? 'bg-accent/20' : ''}
+      >
+        <ListNumbersIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={editor.isActive('blockquote') ? 'bg-accent/20' : ''}
+      >
+        <QuotesIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        className={editor.isActive('code') ? 'bg-accent/20' : ''}
+      >
+        <CodeIcon size={18} />
+      </Button>
+    </>
+  );
+
+  const renderAlignToolbar = () => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        className={editor.isActive({ textAlign: 'left' }) ? 'bg-accent/20' : ''}
+      >
+        <TextAlignLeftIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        className={editor.isActive({ textAlign: 'center' }) ? 'bg-accent/20' : ''}
+      >
+        <TextAlignCenterIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        className={editor.isActive({ textAlign: 'right' }) ? 'bg-accent/20' : ''}
+      >
+        <TextAlignRightIcon size={18} />
+      </Button>
+    </>
+  );
+
+  const renderMediaToolbar = () => (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={setLink}
+        className={editor.isActive('link') ? 'bg-accent/20' : ''}
+      >
+        <LinkIcon size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={addImage}
+      >
+        <ImageIcon size={18} />
+      </Button>
+    </>
+  );
+
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-border p-2 flex flex-wrap gap-1 bg-muted/30 shrink-0 sticky top-0 z-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={editor.isActive('bold') ? 'bg-accent/20' : ''}
-        >
-          <TextBIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={editor.isActive('italic') ? 'bg-accent/20' : ''}
-        >
-          <TextItalicIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={editor.isActive('underline') ? 'bg-accent/20' : ''}
-        >
-          <TextUnderlineIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={editor.isActive('strike') ? 'bg-accent/20' : ''}
-        >
-          <TextStrikethroughIcon size={18} />
-        </Button>
-
+        {renderFormattingToolbar()}
         <Separator orientation="vertical" className="h-8 mx-1" />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={editor.isActive('heading', { level: 1 }) ? 'bg-accent/20' : ''}
-        >
-          H1
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={editor.isActive('heading', { level: 2 }) ? 'bg-accent/20' : ''}
-        >
-          H2
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={editor.isActive('heading', { level: 3 }) ? 'bg-accent/20' : ''}
-        >
-          H3
-        </Button>
-
+        {renderHeadingToolbar()}
         <Separator orientation="vertical" className="h-8 mx-1" />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={editor.isActive('bulletList') ? 'bg-accent/20' : ''}
-        >
-          <ListBulletsIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={editor.isActive('orderedList') ? 'bg-accent/20' : ''}
-        >
-          <ListNumbersIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={editor.isActive('blockquote') ? 'bg-accent/20' : ''}
-        >
-          <QuotesIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          className={editor.isActive('code') ? 'bg-accent/20' : ''}
-        >
-          <CodeIcon size={18} />
-        </Button>
-
+        {renderListToolbar()}
         <Separator orientation="vertical" className="h-8 mx-1" />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-          className={editor.isActive({ textAlign: 'left' }) ? 'bg-accent/20' : ''}
-        >
-          <TextAlignLeftIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          className={editor.isActive({ textAlign: 'center' }) ? 'bg-accent/20' : ''}
-        >
-          <TextAlignCenterIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          className={editor.isActive({ textAlign: 'right' }) ? 'bg-accent/20' : ''}
-        >
-          <TextAlignRightIcon size={18} />
-        </Button>
-
+        {renderAlignToolbar()}
         <Separator orientation="vertical" className="h-8 mx-1" />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={setLink}
-          className={editor.isActive('link') ? 'bg-accent/20' : ''}
-        >
-          <LinkIcon size={18} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={addImage}
-        >
-          <ImageIcon size={18} />
-        </Button>
+        {renderMediaToolbar()}
       </div>
 
       <div className="flex-1 overflow-auto p-6">

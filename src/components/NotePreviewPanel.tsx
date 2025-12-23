@@ -35,10 +35,10 @@ function downloadAttachment(attachment: Attachment) {
   link.download = attachment.name;
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
 }
 
-export function NotePreviewPanel({ note, onClose, onNavigateToNote }: NotePreviewPanelProps) {
+export function NotePreviewPanel({ note, onClose }: Readonly<NotePreviewPanelProps>) {
   if (!note) {
     return (
       <div className="h-full flex flex-col border-l border-border bg-card/30">

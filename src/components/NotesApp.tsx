@@ -34,7 +34,7 @@ export function NotesApp() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [attachmentHeight, setAttachmentHeight] = useState(240);
   const isResizing = useRef(false);
@@ -53,6 +53,14 @@ export function NotesApp() {
   useEffect(() => {
     refetchNotes();
   }, [refetchNotes]);
+
+  const updateNote = useCallback((noteId: string, updates: Partial<Note>) => {
+    setAllNotes(current =>
+      (current || []).map(note =>
+        note.id === noteId ? { ...note, ...updates, updatedAt: Date.now() } : note
+      )
+    );
+  }, [setAllNotes]);
 
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {
     setSelectedNoteId(note.id);
@@ -113,17 +121,6 @@ export function NotesApp() {
     toast.success('New note created');
   }, [setAllNotes, navigate]);
 
-  const updateNote = useCallback((updates: Partial<Note>) => {
-    if (!selectedNoteId) return;
-    
-    setAllNotes(current => 
-      (current || []).map(note => 
-        note.id === selectedNoteId 
-          ? { ...note, ...updates, updatedAt: Date.now() }
-          : note
-      )
-    );
-  }, [selectedNoteId, setAllNotes]);
 
   const addAttachments = useCallback((newAttachments: Attachment[]) => {
     if (!selectedNoteId) return;
@@ -144,26 +141,13 @@ export function NotesApp() {
   const removeAttachment = useCallback((attachmentId: string) => {
     if (!selectedNoteId) return;
     
-    setAllNotes(current => 
-      (current || []).map(note => 
-        note.id === selectedNoteId 
-          ? { 
-              ...note, 
-              attachments: (note.attachments || []).filter(a => a.id !== attachmentId),
-              updatedAt: Date.now() 
-            }
-          : note
-      )
-    );
+    const updatedAttachments = (selectedNote?.attachments || []).filter(a => a.id !== attachmentId);
+    updateNote(selectedNoteId, { attachments: updatedAttachments });
     toast.success('Attachment removed');
-  }, [selectedNoteId, setAllNotes]);
+  }, [selectedNoteId, selectedNote?.attachments, updateNote]);
 
   const deleteNote = useCallback((id: string) => {
-    setAllNotes(current => 
-      (current || []).map(note => 
-        note.id === id ? { ...note, deletedAt: Date.now() } : note
-      )
-    );
+    updateNote(id, { deletedAt: Date.now() });
     if (selectedNoteId === id) {
       setSelectedNoteId(null);
       setEditTitle('');
@@ -176,16 +160,12 @@ export function NotesApp() {
         onClick: () => restoreNote(id)
       }
     });
-  }, [selectedNoteId, setAllNotes, navigate]);
+  }, [selectedNoteId, updateNote, navigate]);
 
   const restoreNote = useCallback((id: string) => {
-    setAllNotes(current => 
-      (current || []).map(note => 
-        note.id === id ? { ...note, deletedAt: undefined } : note
-      )
-    );
+    updateNote(id, { deletedAt: undefined });
     toast.success('Note restored');
-  }, [setAllNotes]);
+  }, [updateNote]);
 
   const permanentlyDeleteNote = useCallback((id: string) => {
     setAllNotes(current => (current || []).filter(note => note.id !== id));
@@ -209,16 +189,10 @@ export function NotesApp() {
     // Set new timer to update after 3 seconds
     if (selectedNoteId) {
       contentDebounceTimer.current = setTimeout(() => {
-        setAllNotes(current => 
-          (current || []).map(note => 
-            note.id === selectedNoteId 
-              ? { ...note, content, updatedAt: Date.now() }
-              : note
-          )
-        );
+        updateNote(selectedNoteId, { content });
       }, 3000);
     }
-  }, [selectedNoteId, setAllNotes]);
+  }, [selectedNoteId, updateNote]);
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
@@ -232,16 +206,10 @@ export function NotesApp() {
     // Set new timer to update after 3 seconds
     if (selectedNoteId) {
       titleDebounceTimer.current = setTimeout(() => {
-        setAllNotes(current => 
-          (current || []).map(note => 
-            note.id === selectedNoteId 
-              ? { ...note, title, updatedAt: Date.now() }
-              : note
-          )
-        );
+        updateNote(selectedNoteId, { title });
       }, 3000);
     }
-  }, [selectedNoteId, setAllNotes]);
+  }, [selectedNoteId, updateNote]);
 
   const handleSelectNote = (note: Note) => {
     handleSelectNoteWithNavigation(note);
@@ -279,11 +247,11 @@ export function NotesApp() {
   }, []);
 
   useEffect(() => {
-    window.addEventListener('mousemove', resize);
-    window.addEventListener('mouseup', stopResizing);
+    globalThis.addEventListener('mousemove', resize);
+    globalThis.addEventListener('mouseup', stopResizing);
     return () => {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+      globalThis.removeEventListener('mousemove', resize);
+      globalThis.removeEventListener('mouseup', stopResizing);
     };
   }, [resize, stopResizing]);
 
@@ -360,9 +328,15 @@ export function NotesApp() {
               </ScrollArea>
             </aside>
 
-            <div
+            <button
+              type="button"
               className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors"
               onMouseDown={startResizing}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft' && sidebarWidth > 200) setSidebarWidth(sidebarWidth - 20);
+                if (e.key === 'ArrowRight' && sidebarWidth < 600) setSidebarWidth(sidebarWidth + 20);
+              }}
+              aria-label="Resize sidebar"
             />
           </>
         )}
@@ -485,9 +459,15 @@ export function NotesApp() {
                 className="shrink-0 flex flex-col"
                 style={{ height: `${attachmentHeight}px` }}
               >
-                <div
-                  className="h-1 bg-border hover:bg-accent cursor-row-resize transition-colors"
+                <button
+                  type="button"
+                  className="h-1 bg-border hover:bg-accent cursor-row-resize transition-colors w-full"
                   onMouseDown={startResizingAttachment}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp' && attachmentHeight < 500) setAttachmentHeight(attachmentHeight + 20);
+                    if (e.key === 'ArrowDown' && attachmentHeight > 20) setAttachmentHeight(attachmentHeight - 20);
+                  }}
+                  aria-label="Resize attachments panel"
                 />
                 <AttachmentManager
                   attachments={selectedNote?.attachments || []}

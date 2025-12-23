@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './AppLayout';
 import { AuthCallback } from './AuthCallback';
 import { WorkflowBuilder } from './components/WorkflowBuilder';
-import { WorkflowsHome } from './components/WorkflowsHome';
 
 export function AppRoutes() {
   return (

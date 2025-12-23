@@ -16,16 +16,22 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(registration => {
-        console.log('Service Worker registered:', registration);
+        console.log('Service Worker registered');
         
         // Request periodic background sync if supported
-        if ('periodicSync' in registration) {
-          registration.periodicSync.register('check-overdue-todos', {
+        const periodicSync = (registration as ServiceWorkerRegistration & { periodicSync?: { register: (tag: string, options: { minInterval: number }) => Promise<void> } }).periodicSync;
+        if (periodicSync) {
+          periodicSync.register('check-overdue-todos', {
             minInterval: 60 * 1000 // 1 minute
-          }).catch(err => console.log('Periodic sync registration failed:', err));
+          }).catch(err => {
+            // Periodic sync requires HTTPS and proper permissions - silently fail in development
+            if (!(err instanceof DOMException && err.name === 'NotAllowedError')) {
+              console.warn('Periodic sync registration failed:', err);
+            }
+          });
         }
       })
-      .catch(err => console.log('Service Worker registration failed:', err));
+      .catch(err => console.error('Service Worker registration failed:', err));
   });
 }
 

@@ -13,7 +13,7 @@ interface LinkedNotesViewProps {
   onPreviewNote?: (noteId: string) => void;
 }
 
-export function LinkedNotesView({ notes, onClose, onNavigateToNote, onPreviewNote }: LinkedNotesViewProps) {
+export function LinkedNotesView({ notes, onClose, onNavigateToNote, onPreviewNote }: Readonly<LinkedNotesViewProps>) {
   return (
     <div className="h-full flex flex-col border-l border-border bg-card/30">
       <div className="p-4 border-b border-border flex items-center justify-between shrink-0">

@@ -289,6 +289,67 @@ export function WorkflowBuilder() {
   const [isLoadingWorkflow, setIsLoadingWorkflow] = useState(true);
   const [workflowNotFound, setWorkflowNotFound] = useState(false);
 
+  const fetchWorkflowFromRemote = useCallback(
+    async (id: string, userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('workflows')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .single();
+
+        if (error?.code === 'PGRST116') {
+          console.log('Workflow not found in database');
+          return null;
+        }
+
+        if (error) throw error;
+
+        if (data) {
+          return {
+            id: data.id,
+            name: data.name,
+            data: data.data,
+            createdAt: new Date(data.created_at).getTime(),
+            updatedAt: new Date(data.updated_at).getTime(),
+            todos: data.todos || [],
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error('Failed to load workflow from database:', error);
+        toast.error('Failed to load workflow');
+        return null;
+      }
+    },
+    []
+  );
+
+  const fetchWorkflowFromLocal = useCallback((id: string) => {
+    try {
+      const workflowData = localStorage.getItem(`workflow:${id}`);
+      const summariesRaw = localStorage.getItem('workflows-list');
+      const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
+      const summary = summaries.find((s: any) => s.id === id);
+      
+      if (!workflowData || !summary) return null;
+
+      return {
+        id,
+        name: summary.name,
+        data: JSON.parse(workflowData),
+        createdAt: summary.createdAt || Date.now(),
+        updatedAt: summary.updatedAt || Date.now(),
+        todos: summary.todos || [],
+      };
+    } catch (error) {
+      console.error('Failed to load workflow from localStorage:', error);
+      return null;
+    }
+  }, []);
+
   // Fetch workflow data from database or localStorage
   useEffect(() => {
     if (!workflowId) return;
@@ -297,77 +358,26 @@ export function WorkflowBuilder() {
       setIsLoadingWorkflow(true);
       setWorkflowNotFound(false);
       
-      if (dataMode === 'remote' && user) {
-        // Fetch from Supabase
-        try {
-          const { data, error } = await supabase
-            .from('workflows')
-            .select('*')
-            .eq('id', workflowId)
-            .eq('user_id', user.id)
-            .is('deleted_at', null)
-            .single();
+      let workflow: Workflow | null = null;
 
-          if (error) {
-            if (error.code === 'PGRST116') {
-              // Workflow not found
-              console.log('Workflow not found in database');
-              setLoadedWorkflow(null);
-              setWorkflowNotFound(true);
-            } else {
-              throw error;
-            }
-          } else if (data) {
-            setLoadedWorkflow({
-              id: data.id,
-              name: data.name,
-              data: data.data,
-              createdAt: new Date(data.created_at).getTime(),
-              updatedAt: new Date(data.updated_at).getTime(),
-              todos: data.todos || [],
-            });
-            setWorkflowNotFound(false);
-          }
-        } catch (error) {
-          console.error('Failed to load workflow from database:', error);
-          toast.error('Failed to load workflow');
-          setWorkflowNotFound(true);
-        }
+      if (dataMode === 'remote' && user) {
+        workflow = await fetchWorkflowFromRemote(workflowId, user.id);
       } else {
-        // Load from localStorage
-        try {
-          const workflowData = localStorage.getItem(`workflow:${workflowId}`);
-          const summariesRaw = localStorage.getItem('workflows-list');
-          const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
-          const summary = summaries.find((s: any) => s.id === workflowId);
-          
-          if (workflowData && summary) {
-            setLoadedWorkflow({
-              id: workflowId,
-              name: summary.name,
-              data: JSON.parse(workflowData),
-              createdAt: summary.createdAt || Date.now(),
-              updatedAt: summary.updatedAt || Date.now(),
-              todos: summary.todos || [],
-            });
-            setWorkflowNotFound(false);
-          } else {
-            // Workflow not found locally
-            setLoadedWorkflow(null);
-            setWorkflowNotFound(true);
-          }
-        } catch (error) {
-          console.error('Failed to load workflow from localStorage:', error);
-          setLoadedWorkflow(null);
-          setWorkflowNotFound(true);
-        }
+        workflow = fetchWorkflowFromLocal(workflowId);
+      }
+
+      if (workflow) {
+        setLoadedWorkflow(workflow);
+      } else {
+        setLoadedWorkflow(null);
+        setWorkflowNotFound(true);
       }
       
       setIsLoadingWorkflow(false);
     };
 
     fetchWorkflow();
-  }, [workflowId, user?.id, dataMode]);
+  }, [workflowId, user?.id, dataMode, fetchWorkflowFromRemote, fetchWorkflowFromLocal]);
 
   const initialState = useMemo(() => {
     const normalizeNodes = (rawNodes?: Node<WorkflowNodeData>[]) =>

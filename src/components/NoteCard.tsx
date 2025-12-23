@@ -13,7 +13,7 @@ interface NoteCardProps {
   searchQuery?: string;
 }
 
-export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: NoteCardProps) {
+export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Readonly<NoteCardProps>) {
   const getPreview = (content: string) => {
     const div = document.createElement('div');
     div.innerHTML = content;
@@ -26,7 +26,7 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Not
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, i) => 
       part.toLowerCase() === query.toLowerCase() ? 
-        <mark key={i} className="bg-accent/30 text-foreground">{part}</mark> : 
+        <mark key={`${part}-${i}`} className="bg-accent/30 text-foreground">{part}</mark> : 
         part
     );
   };
