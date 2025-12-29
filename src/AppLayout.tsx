@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NotePencilIcon, CheckCircleIcon, MoonIcon, SunIcon, GoogleLogoIcon, ShareNetworkIcon, SignOutIcon } from '@phosphor-icons/react';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/providers/AuthProvider';
-import { NotesApp } from '@/components/NotesApp';
-import { TodoApp } from '@/components/TodoApp';
-import { WorkflowsHome } from '@/components/WorkflowsHome';
 import { toast } from 'sonner';
 
 type ActiveTab = 'notes' | 'todos' | 'workflows';
@@ -162,9 +159,8 @@ function AppLayout() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {activeTab === 'notes' && <NotesApp />}
-        {activeTab === 'todos' && <TodoApp onNavigateToNote={navigateToNote} />}
-        {activeTab === 'workflows' && <WorkflowsHome />}
+        {/* Render route-specific component */}
+        <Outlet context={{ navigateToNote }} />
       </div>
     </div>
   );
