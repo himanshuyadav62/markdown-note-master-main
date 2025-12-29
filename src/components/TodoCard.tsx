@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { TrashIcon, LinkIcon, NoteIcon, TagIcon, XIcon, PlusIcon, FoldersIcon, CalendarBlankIcon, ClockIcon } from '@phosphor-icons/react';
+import { TrashIcon, LinkIcon, NoteIcon, TagIcon, XIcon, PlusIcon, FoldersIcon, CalendarBlankIcon, ClockIcon, PencilSimpleIcon, CheckIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Todo, TodoGroup } from '@/lib/types';
 
@@ -19,10 +19,13 @@ interface TodoCardProps {
   onToggleGroup: (groupId: string) => void;
   onUpdateTags: (tags: string[]) => void;
   onUpdateDueDate: (dueDate: number | undefined) => void;
+  onUpdateTitle?: (title: string) => void;
 }
 
-export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onViewNotes, onToggleGroup, onUpdateTags, onUpdateDueDate }: Readonly<TodoCardProps>) {
+export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onViewNotes, onToggleGroup, onUpdateTags, onUpdateDueDate, onUpdateTitle }: Readonly<TodoCardProps>) {
   const [newTag, setNewTag] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(todo.title);
   const assignedGroups = groups.filter(g => (todo.groupIds || []).includes(g.id));
   const linkedNoteIds = todo.linkedNoteIds || [];
   const tags = todo.tags || [];
@@ -55,6 +58,26 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
     }
   };
 
+  const handleSaveTitle = () => {
+    const trimmedTitle = editedTitle.trim();
+    if (trimmedTitle && trimmedTitle !== todo.title && onUpdateTitle) {
+      onUpdateTitle(trimmedTitle);
+      setIsEditingTitle(false);
+    } else {
+      setIsEditingTitle(false);
+      setEditedTitle(todo.title);
+    }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveTitle();
+    } else if (e.key === 'Escape') {
+      setIsEditingTitle(false);
+      setEditedTitle(todo.title);
+    }
+  };
+
   const formatDateForInput = (timestamp: number) => {
     const date = new Date(timestamp);
     const year = date.getFullYear();
@@ -75,12 +98,57 @@ export function TodoCard({ todo, groups, onToggle, onDelete, onLinkNotes, onView
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h3
-              className={`font-medium text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : ''
-                }`}
-            >
-              {todo.title}
-            </h3>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-1.5 flex-1">
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={handleTitleKeyDown}
+                  className="h-7 text-sm px-2 py-1 flex-1"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSaveTitle}
+                  className="h-6 w-6 text-primary hover:text-primary"
+                  aria-label="Save title"
+                >
+                  <CheckIcon size={14} weight="bold" aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsEditingTitle(false);
+                    setEditedTitle(todo.title);
+                  }}
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  aria-label="Cancel edit"
+                >
+                  <XIcon size={14} aria-hidden="true" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h3
+                  className={`font-medium text-sm leading-snug ${todo.completed ? 'line-through text-muted-foreground' : ''
+                    }`}
+                >
+                  {todo.title}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsEditingTitle(true)}
+                  className="h-5 w-5 text-muted-foreground hover:text-accent"
+                  aria-label="Edit title"
+                  title="Edit title"
+                >
+                  <PencilSimpleIcon size={12} aria-hidden="true" />
+                </Button>
+              </>
+            )}
             {tags.map(tag => (
               <Badge
                 key={tag}

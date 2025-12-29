@@ -462,6 +462,17 @@ export function TodoApp({ onNavigateToNote }: Readonly<TodoAppProps>) {
         }
     }, [setTodos]);
 
+    const updateTodoTitle = useCallback((todoId: string, title: string) => {
+        setTodos(current =>
+            (current || []).map(todo =>
+                todo.id === todoId
+                    ? { ...todo, title, updatedAt: Date.now() }
+                    : todo
+            )
+        );
+        toast.success('Todo title updated');
+    }, [setTodos]);
+
     // Request notification permission on mount
     useEffect(() => {
         if ('Notification' in globalThis && Notification.permission === 'default') {
@@ -696,8 +707,9 @@ export function TodoApp({ onNavigateToNote }: Readonly<TodoAppProps>) {
         onViewNotes: () => handleViewNotes(todo.id),
         onToggleGroup: (groupId: string) => toggleTodoGroup(todo.id, groupId),
         onUpdateTags: (tags: string[]) => updateTodoTags(todo.id, tags),
-        onUpdateDueDate: (dueDate: number | undefined) => updateTodoDueDate(todo.id, dueDate)
-    }), [deleteTodo, handleViewNotes, openLinkDialog, toggleTodo, toggleTodoGroup, updateTodoDueDate, updateTodoTags]);
+        onUpdateDueDate: (dueDate: number | undefined) => updateTodoDueDate(todo.id, dueDate),
+        onUpdateTitle: (title: string) => updateTodoTitle(todo.id, title)
+    }), [deleteTodo, handleViewNotes, openLinkDialog, toggleTodo, toggleTodoGroup, updateTodoDueDate, updateTodoTags, updateTodoTitle]);
 
     const renderTodoCard = useCallback((todo: Todo) => {
         const handlers = buildTodoHandlers(todo);
