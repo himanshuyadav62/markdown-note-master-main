@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon } from '@phosphor-icons/react';
+import { PlusIcon, TrashIcon, ArrowCounterClockwiseIcon, CheckCircleIcon, XIcon, TagIcon, FoldersIcon, PencilSimpleIcon, CheckIcon, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { TodoCard } from '@/components/TodoCard';
 import { NoteLinkDialog } from '@/components/NoteLinkDialog';
 import { LinkedNotesView } from '@/components/LinkedNotesView';
@@ -918,7 +918,7 @@ export function TodoApp({ onNavigateToNote }: Readonly<TodoAppProps>) {
                                 title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                                 className="absolute top-2 right-4 z-50 h-10 w-10 rounded-full shadow-lg bg-card/95 backdrop-blur-sm hover:bg-card"
                             >
-                                {isFullscreen ? 'Exit' : 'Fullscreen'}
+                                {isFullscreen ? <ArrowsIn size={18} weight="bold" /> : <ArrowsOut size={18} weight="bold" />}
                             </Button>
                             <ScrollArea className="h-full">
                                 <div className="px-6 py-4 space-y-4">
