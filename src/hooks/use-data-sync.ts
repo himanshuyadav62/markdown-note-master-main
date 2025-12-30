@@ -77,12 +77,83 @@ export function useNotes(): UseNotesResult {
     }
   }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
+  const saveLocalNotes = useCallback(
+    async (notesToSave: Note[]): Promise<void> => {
+      try {
+        localStorage.setItem('notes', JSON.stringify(notesToSave));
+      } catch (error) {
+        console.error('Failed to save local notes:', error);
+        toast.error('Failed to save notes');
+      }
+    },
+    []
+  );
+
+  const saveRemoteNotes = useCallback(
+    async (nextNotes: Note[]): Promise<void> => {
+      if (!user) return;
+      try {
+        const changedNotes = nextNotes.filter(nextNote => {
+          const prevNote = notes.find(n => n.id === nextNote.id);
+          return !prevNote || 
+                 prevNote.title !== nextNote.title || 
+                 prevNote.content !== nextNote.content ||
+                 prevNote.deletedAt !== nextNote.deletedAt;
+        });
+
+        const deletedNoteIds = notes
+          .filter(prevNote => !nextNotes.some(n => n.id === prevNote.id))
+          .map(note => note.id);
+
+        await upsertNotes(changedNotes);
+        await deleteNotes(deletedNoteIds);
+      } catch (error) {
+        console.error('Failed to save remote notes:', error);
+        toast.error('Failed to save notes to Supabase');
+      }
+    },
+    [user, notes]
+  );
+
+  const upsertNotes = useCallback(
+    async (changedNotes: Note[]): Promise<void> => {
+      if (changedNotes.length === 0 || !user) return;
+      const { error } = await supabase.from('notes').upsert(
+        changedNotes.map(note => ({
+          id: note.id,
+          user_id: user.id,
+          title: note.title,
+          content: note.content,
+          created_at: new Date(note.createdAt).toISOString(),
+          updated_at: new Date(note.updatedAt).toISOString(),
+          deleted_at: note.deletedAt
+            ? new Date(note.deletedAt).toISOString()
+            : null,
+        }))
+      );
+      if (error) throw error;
+    },
+    [user]
+  );
+
+  const deleteNotes = useCallback(
+    async (deletedNoteIds: string[]): Promise<void> => {
+      if (deletedNoteIds.length === 0 || !user) return;
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .in('id', deletedNoteIds)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    [user]
+  );
+
   // Save notes
   const setNotes = useCallback(
     async (
       notesOrUpdater: Note[] | ((prev: Note[]) => Note[])
     ): Promise<void> => {
-      const prevNotes = notes;
       const nextNotes =
         typeof notesOrUpdater === 'function'
           ? notesOrUpdater(notes)
@@ -90,66 +161,10 @@ export function useNotes(): UseNotesResult {
 
       setNotesState(nextNotes);
 
-      if (dataMode === 'local') {
-        try {
-          localStorage.setItem('notes', JSON.stringify(nextNotes));
-        } catch (error) {
-          console.error('Failed to save local notes:', error);
-          toast.error('Failed to save notes');
-        }
-      } else if (dataMode === 'remote' && user) {
-        // Sync with Supabase - handle both updates and deletions
-        try {
-          // Find notes that changed
-          const changedNotes = nextNotes.filter(nextNote => {
-            const prevNote = prevNotes.find(n => n.id === nextNote.id);
-            return !prevNote || 
-                   prevNote.title !== nextNote.title || 
-                   prevNote.content !== nextNote.content ||
-                   prevNote.deletedAt !== nextNote.deletedAt;
-          });
-
-          // Find notes that were deleted (exist in prev but not in next)
-          const deletedNoteIds = prevNotes
-            .filter(prevNote => !nextNotes.find(n => n.id === prevNote.id))
-            .map(note => note.id);
-
-          // Only upsert changed notes
-          if (changedNotes.length > 0) {
-            const { error } = await supabase.from('notes').upsert(
-              changedNotes.map(note => ({
-                id: note.id,
-                user_id: user.id,
-                title: note.title,
-                content: note.content,
-                created_at: new Date(note.createdAt).toISOString(),
-                updated_at: new Date(note.updatedAt).toISOString(),
-                deleted_at: note.deletedAt
-                  ? new Date(note.deletedAt).toISOString()
-                  : null,
-              }))
-            );
-
-            if (error) throw error;
-          }
-
-          // Delete removed notes from database
-          if (deletedNoteIds.length > 0) {
-            const { error } = await supabase
-              .from('notes')
-              .delete()
-              .in('id', deletedNoteIds)
-              .eq('user_id', user.id);
-
-            if (error) throw error;
-          }
-        } catch (error) {
-          console.error('Failed to save remote notes:', error);
-          toast.error('Failed to save notes to Supabase');
-        }
-      }
+      const saveHandler = dataMode === 'local' ? saveLocalNotes : saveRemoteNotes;
+      await saveHandler(nextNotes);
     },
-    [notes, dataMode, user]
+    [notes, dataMode, saveLocalNotes, saveRemoteNotes]
   );
 
   const refetch = useCallback(
@@ -243,6 +258,50 @@ export function useTodos(): UseTodosResult {
     }
   }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
+  const saveLocalTodos = useCallback(
+    async (todosToSave: Todo[]): Promise<void> => {
+      try {
+        localStorage.setItem('todos', JSON.stringify(todosToSave));
+      } catch (error) {
+        console.error('Failed to save local todos:', error);
+        toast.error('Failed to save todos');
+      }
+    },
+    []
+  );
+
+  const saveRemoteTodos = useCallback(
+    async (todosToSave: Todo[]): Promise<void> => {
+      if (!user) return;
+      try {
+        for (const todo of todosToSave) {
+          const { error } = await supabase.from('todos').upsert({
+            id: todo.id,
+            user_id: user.id,
+            title: todo.title,
+            completed: todo.completed,
+            created_at: new Date(todo.createdAt).toISOString(),
+            updated_at: new Date(todo.updatedAt).toISOString(),
+            deleted_at: todo.deletedAt
+              ? new Date(todo.deletedAt).toISOString()
+              : null,
+            group_ids: todo.groupIds || [],
+            tags: todo.tags || [],
+            due_date: todo.dueDate
+              ? new Date(todo.dueDate).toISOString()
+              : null,
+          });
+
+          if (error) throw error;
+        }
+      } catch (error) {
+        console.error('Failed to save remote todos:', error);
+        toast.error('Failed to save todos to Supabase');
+      }
+    },
+    [user]
+  );
+
   // Save todos
   const setTodos = useCallback(
     async (
@@ -255,42 +314,10 @@ export function useTodos(): UseTodosResult {
 
       setTodosState(nextTodos);
 
-      if (dataMode === 'local') {
-        try {
-          localStorage.setItem('todos', JSON.stringify(nextTodos));
-        } catch (error) {
-          console.error('Failed to save local todos:', error);
-          toast.error('Failed to save todos');
-        }
-      } else if (dataMode === 'remote' && user) {
-        try {
-          for (const todo of nextTodos) {
-            const { error } = await supabase.from('todos').upsert({
-              id: todo.id,
-              user_id: user.id,
-              title: todo.title,
-              completed: todo.completed,
-              created_at: new Date(todo.createdAt).toISOString(),
-              updated_at: new Date(todo.updatedAt).toISOString(),
-              deleted_at: todo.deletedAt
-                ? new Date(todo.deletedAt).toISOString()
-                : null,
-              group_ids: todo.groupIds || [],
-              tags: todo.tags || [],
-              due_date: todo.dueDate
-                ? new Date(todo.dueDate).toISOString()
-                : null,
-            });
-
-            if (error) throw error;
-          }
-        } catch (error) {
-          console.error('Failed to save remote todos:', error);
-          toast.error('Failed to save todos to Supabase');
-        }
-      }
+      const saveHandler = dataMode === 'local' ? saveLocalTodos : saveRemoteTodos;
+      await saveHandler(nextTodos);
     },
-    [todos, dataMode, user]
+    [todos, dataMode, saveLocalTodos, saveRemoteTodos]
   );
 
   const refetch = useCallback(
@@ -508,6 +535,78 @@ export function useWorkflows(): UseWorkflowsResult {
     }
   }, [user?.id, hasLoaded]); // Only depend on user.id and hasLoaded to avoid dataMode changes triggering refetch
 
+  // Save local workflows
+  const saveLocalWorkflows = useCallback(
+    async (nextWorkflows: Workflow[]): Promise<void> => {
+      try {
+        const summaries = nextWorkflows.map(w => ({
+          id: w.id,
+          name: w.name,
+          updatedAt: w.updatedAt,
+          createdAt: w.createdAt,
+          todos: w.todos || [],
+        }));
+        localStorage.setItem('workflows-list', JSON.stringify(summaries));
+        
+        nextWorkflows.forEach(workflow => {
+          if (workflow.data) {
+            localStorage.setItem(`workflow:${workflow.id}`, JSON.stringify(workflow.data));
+          }
+        });
+      } catch (error) {
+        console.error('Failed to save local workflows:', error);
+        toast.error('Failed to save workflows');
+      }
+    },
+    []
+  );
+
+  // Convert workflow to database format
+  const workflowToDb = useCallback(
+    (workflow: Workflow) => ({
+      id: workflow.id,
+      user_id: user?.id,
+      name: workflow.name,
+      data: workflow.data,
+      created_at: new Date(workflow.createdAt).toISOString(),
+      updated_at: new Date(workflow.updatedAt).toISOString(),
+      deleted_at: workflow.deletedAt
+        ? new Date(workflow.deletedAt).toISOString()
+        : null,
+      todos: workflow.todos || [],
+    }),
+    [user]
+  );
+
+  // Upsert single workflow
+  const upsertSingleWorkflow = useCallback(
+    async (workflow: Workflow): Promise<void> => {
+      console.log('Upserting workflow:', workflow.id, workflow.name);
+      const { error } = await supabase.from('workflows').upsert(workflowToDb(workflow));
+      if (error) {
+        console.error('Error upserting workflow:', error);
+        throw error;
+      }
+    },
+    [workflowToDb]
+  );
+
+  // Save remote workflows
+  const saveRemoteWorkflows = useCallback(
+    async (nextWorkflows: Workflow[]): Promise<void> => {
+      if (!user) return;
+      try {
+        console.log('Saving workflows to remote:', nextWorkflows.length);
+        await Promise.all(nextWorkflows.map(upsertSingleWorkflow));
+        console.log('All workflows saved successfully');
+      } catch (error) {
+        console.error('Failed to save remote workflows:', error);
+        toast.error('Failed to save workflows to Supabase');
+      }
+    },
+    [user, upsertSingleWorkflow]
+  );
+
   // Save workflows
   const setWorkflows = useCallback(
     async (
@@ -521,96 +620,63 @@ export function useWorkflows(): UseWorkflowsResult {
       setWorkflowsState(nextWorkflows);
 
       if (dataMode === 'local') {
-        try {
-          // Save summaries list
-          const summaries = nextWorkflows.map(w => ({
-            id: w.id,
-            name: w.name,
-            updatedAt: w.updatedAt,
-            createdAt: w.createdAt,
-            todos: w.todos || [],
-          }));
-          localStorage.setItem('workflows-list', JSON.stringify(summaries));
-          
-          // Save individual workflow data
-          nextWorkflows.forEach(workflow => {
-            if (workflow.data) {
-              localStorage.setItem(`workflow:${workflow.id}`, JSON.stringify(workflow.data));
-            }
-          });
-        } catch (error) {
-          console.error('Failed to save local workflows:', error);
-          toast.error('Failed to save workflows');
-        }
-      } else if (dataMode === 'remote' && user) {
-        try {
-          console.log('Saving workflows to remote:', nextWorkflows.length);
-          for (const workflow of nextWorkflows) {
-            console.log('Upserting workflow:', workflow.id, workflow.name);
-            const { error } = await supabase.from('workflows').upsert({
-              id: workflow.id,
-              user_id: user.id,
-              name: workflow.name,
-              data: workflow.data,
-              created_at: new Date(workflow.createdAt).toISOString(),
-              updated_at: new Date(workflow.updatedAt).toISOString(),
-              deleted_at: workflow.deletedAt
-                ? new Date(workflow.deletedAt).toISOString()
-                : null,
-              todos: workflow.todos || [],
-            });
-
-            if (error) {
-              console.error('Error upserting workflow:', error);
-              throw error;
-            }
-          }
-          console.log('All workflows saved successfully');
-        } catch (error) {
-          console.error('Failed to save remote workflows:', error);
-          toast.error('Failed to save workflows to Supabase');
-        }
+        await saveLocalWorkflows(nextWorkflows);
+      } else if (dataMode === 'remote') {
+        await saveRemoteWorkflows(nextWorkflows);
       }
     },
-    [workflows, dataMode, user]
+    [workflows, dataMode, saveLocalWorkflows, saveRemoteWorkflows]
+  );
+
+  // Delete local workflow
+  const deleteLocalWorkflow = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        const summariesRaw = localStorage.getItem('workflows-list');
+        const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
+        const nextSummaries = (summaries || []).filter((s: any) => s.id !== id);
+        localStorage.setItem('workflows-list', JSON.stringify(nextSummaries));
+        localStorage.removeItem(`workflow:${id}`);
+      } catch (error) {
+        console.error('Failed to delete local workflow:', error);
+        toast.error('Failed to delete workflow');
+      }
+    },
+    []
+  );
+
+  // Delete remote workflow
+  const deleteRemoteWorkflow = useCallback(
+    async (id: string): Promise<void> => {
+      if (!user) return;
+      try {
+        const { error } = await supabase
+          .from('workflows')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } catch (error) {
+        console.error('Failed to delete remote workflow:', error);
+        toast.error('Failed to delete workflow from Supabase');
+        await loadRemoteWorkflows();
+      }
+    },
+    [user, loadRemoteWorkflows]
   );
 
   // Delete workflow (hard delete remotely, remove locally)
   const deleteWorkflow = useCallback(
     async (id: string): Promise<void> => {
-      // Optimistically update local state
       setWorkflowsState((prev) => (prev || []).filter((w) => w.id !== id));
 
       if (dataMode === 'local') {
-        try {
-          // Update summaries
-          const summariesRaw = localStorage.getItem('workflows-list');
-          const summaries = summariesRaw ? JSON.parse(summariesRaw) : [];
-          const nextSummaries = (summaries || []).filter((s: any) => s.id !== id);
-          localStorage.setItem('workflows-list', JSON.stringify(nextSummaries));
-          // Remove stored workflow data blob
-          localStorage.removeItem(`workflow:${id}`);
-        } catch (error) {
-          console.error('Failed to delete local workflow:', error);
-          toast.error('Failed to delete workflow');
-        }
-      } else if (dataMode === 'remote' && user) {
-        try {
-          const { error } = await supabase
-            .from('workflows')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', user.id);
-          if (error) throw error;
-        } catch (error) {
-          console.error('Failed to delete remote workflow:', error);
-          toast.error('Failed to delete workflow from Supabase');
-          // On failure, refetch to restore state
-          await loadRemoteWorkflows();
-        }
+        await deleteLocalWorkflow(id);
+      } else if (dataMode === 'remote') {
+        await deleteRemoteWorkflow(id);
       }
     },
-    [dataMode, user, loadRemoteWorkflows]
+    [dataMode, deleteLocalWorkflow, deleteRemoteWorkflow]
   );
 
   const refetch = useCallback(

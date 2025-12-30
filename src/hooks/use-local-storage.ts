@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
 
-const isBrowser = typeof globalThis.window !== 'undefined';
+const isBrowser = globalThis.window !== undefined;
 
 function readValue<T>(key: string, fallback: T): T {
   if (!isBrowser) {
