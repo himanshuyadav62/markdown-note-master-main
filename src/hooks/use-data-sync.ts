@@ -270,36 +270,81 @@ export function useTodos(): UseTodosResult {
     []
   );
 
-  const saveRemoteTodos = useCallback(
-    async (todosToSave: Todo[]): Promise<void> => {
-      if (!user) return;
-      try {
-        for (const todo of todosToSave) {
-          const { error } = await supabase.from('todos').upsert({
-            id: todo.id,
-            user_id: user.id,
-            title: todo.title,
-            completed: todo.completed,
-            created_at: new Date(todo.createdAt).toISOString(),
-            updated_at: new Date(todo.updatedAt).toISOString(),
-            deleted_at: todo.deletedAt
-              ? new Date(todo.deletedAt).toISOString()
-              : null,
-            group_ids: todo.groupIds || [],
-            tags: todo.tags || [],
-            due_date: todo.dueDate
-              ? new Date(todo.dueDate).toISOString()
-              : null,
-          });
+  const upsertTodos = useCallback(
+    async (changedTodos: Todo[]): Promise<void> => {
+      if (changedTodos.length === 0 || !user) return;
 
-          if (error) throw error;
-        }
+      const { error } = await supabase.from('todos').upsert(
+        changedTodos.map(todo => ({
+          id: todo.id,
+          user_id: user.id,
+          title: todo.title,
+          completed: todo.completed,
+          created_at: new Date(todo.createdAt).toISOString(),
+          updated_at: new Date(todo.updatedAt).toISOString(),
+          deleted_at: todo.deletedAt
+            ? new Date(todo.deletedAt).toISOString()
+            : null,
+          group_ids: todo.groupIds || [],
+          tags: todo.tags || [],
+          due_date: todo.dueDate
+            ? new Date(todo.dueDate).toISOString()
+            : null,
+        }))
+      );
+
+      if (error) throw error;
+    },
+    [user]
+  );
+
+  const deleteTodos = useCallback(
+    async (deletedTodoIds: string[]): Promise<void> => {
+      if (deletedTodoIds.length === 0 || !user) return;
+
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .in('id', deletedTodoIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    [user]
+  );
+
+  const saveRemoteTodos = useCallback(
+    async (nextTodos: Todo[]): Promise<void> => {
+      if (!user) return;
+
+      try {
+        const changedTodos = nextTodos.filter(nextTodo => {
+          const prevTodo = todos.find(t => t.id === nextTodo.id);
+          return (
+            !prevTodo ||
+            prevTodo.title !== nextTodo.title ||
+            prevTodo.completed !== nextTodo.completed ||
+            prevTodo.createdAt !== nextTodo.createdAt ||
+            prevTodo.updatedAt !== nextTodo.updatedAt ||
+            prevTodo.deletedAt !== nextTodo.deletedAt ||
+            JSON.stringify(prevTodo.groupIds || []) !== JSON.stringify(nextTodo.groupIds || []) ||
+            JSON.stringify(prevTodo.tags || []) !== JSON.stringify(nextTodo.tags || []) ||
+            prevTodo.dueDate !== nextTodo.dueDate
+          );
+        });
+
+        const deletedTodoIds = todos
+          .filter(prevTodo => !nextTodos.some(todo => todo.id === prevTodo.id))
+          .map(todo => todo.id);
+
+        await upsertTodos(changedTodos);
+        await deleteTodos(deletedTodoIds);
       } catch (error) {
         console.error('Failed to save remote todos:', error);
         toast.error('Failed to save todos to Supabase');
       }
     },
-    [user]
+    [user, todos, upsertTodos, deleteTodos]
   );
 
   // Save todos
