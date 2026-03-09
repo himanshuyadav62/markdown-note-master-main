@@ -270,36 +270,90 @@ export function useTodos(): UseTodosResult {
     []
   );
 
-  const saveRemoteTodos = useCallback(
-    async (todosToSave: Todo[]): Promise<void> => {
-      if (!user) return;
-      try {
-        for (const todo of todosToSave) {
-          const { error } = await supabase.from('todos').upsert({
-            id: todo.id,
-            user_id: user.id,
-            title: todo.title,
-            completed: todo.completed,
-            created_at: new Date(todo.createdAt).toISOString(),
-            updated_at: new Date(todo.updatedAt).toISOString(),
-            deleted_at: todo.deletedAt
-              ? new Date(todo.deletedAt).toISOString()
-              : null,
-            group_ids: todo.groupIds || [],
-            tags: todo.tags || [],
-            due_date: todo.dueDate
-              ? new Date(todo.dueDate).toISOString()
-              : null,
-          });
+  const areStringArraysEqual = (first: string[] = [], second: string[] = []) => {
+    if (first.length !== second.length) return false;
+    return first.every((value, index) => value === second[index]);
+  };
 
-          if (error) throw error;
-        }
+  const isTodoChanged = (prevTodo: Todo, nextTodo: Todo) => (
+    prevTodo.title !== nextTodo.title ||
+    prevTodo.completed !== nextTodo.completed ||
+    prevTodo.createdAt !== nextTodo.createdAt ||
+    prevTodo.updatedAt !== nextTodo.updatedAt ||
+    prevTodo.deletedAt !== nextTodo.deletedAt ||
+    !areStringArraysEqual(prevTodo.groupIds, nextTodo.groupIds) ||
+    !areStringArraysEqual(prevTodo.tags, nextTodo.tags) ||
+    prevTodo.dueDate !== nextTodo.dueDate
+  );
+
+  const upsertTodos = useCallback(
+    async (changedTodos: Todo[]): Promise<void> => {
+      if (changedTodos.length === 0 || !user) return;
+
+      const { error } = await supabase.from('todos').upsert(
+        changedTodos.map(todo => ({
+          id: todo.id,
+          user_id: user.id,
+          title: todo.title,
+          completed: todo.completed,
+          created_at: new Date(todo.createdAt).toISOString(),
+          updated_at: new Date(todo.updatedAt).toISOString(),
+          deleted_at: todo.deletedAt
+            ? new Date(todo.deletedAt).toISOString()
+            : null,
+          group_ids: todo.groupIds || [],
+          tags: todo.tags || [],
+          due_date: todo.dueDate
+            ? new Date(todo.dueDate).toISOString()
+            : null,
+        }))
+      );
+
+      if (error) throw error;
+    },
+    [user]
+  );
+
+  const deleteTodos = useCallback(
+    async (deletedTodoIds: string[]): Promise<void> => {
+      if (deletedTodoIds.length === 0 || !user) return;
+
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .in('id', deletedTodoIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    [user]
+  );
+
+  const saveRemoteTodos = useCallback(
+    async (prevTodos: Todo[], nextTodos: Todo[]): Promise<void> => {
+      if (!user) return;
+
+      try {
+        const previousTodosById = new Map(prevTodos.map(todo => [todo.id, todo]));
+        const nextTodoIds = new Set(nextTodos.map(todo => todo.id));
+
+        const changedTodos = nextTodos.filter(nextTodo => {
+          const prevTodo = previousTodosById.get(nextTodo.id);
+          return !prevTodo || isTodoChanged(prevTodo, nextTodo);
+        });
+
+        const deletedTodoIds = prevTodos
+          .filter(prevTodo => !nextTodoIds.has(prevTodo.id))
+          .map(todo => todo.id);
+
+        await upsertTodos(changedTodos);
+        await deleteTodos(deletedTodoIds);
       } catch (error) {
         console.error('Failed to save remote todos:', error);
         toast.error('Failed to save todos to Supabase');
       }
     },
-    [user]
+    [user, upsertTodos, deleteTodos]
   );
 
   // Save todos
@@ -307,17 +361,25 @@ export function useTodos(): UseTodosResult {
     async (
       todosOrUpdater: Todo[] | ((prev: Todo[]) => Todo[])
     ): Promise<void> => {
-      const nextTodos =
-        typeof todosOrUpdater === 'function'
-          ? todosOrUpdater(todos)
+      let prevTodosSnapshot: Todo[] = [];
+      let nextTodosSnapshot: Todo[] = [];
+
+      setTodosState(prevTodos => {
+        prevTodosSnapshot = prevTodos;
+        nextTodosSnapshot = typeof todosOrUpdater === 'function'
+          ? todosOrUpdater(prevTodos)
           : todosOrUpdater;
+        return nextTodosSnapshot;
+      });
 
-      setTodosState(nextTodos);
+      if (dataMode === 'local') {
+        await saveLocalTodos(nextTodosSnapshot);
+        return;
+      }
 
-      const saveHandler = dataMode === 'local' ? saveLocalTodos : saveRemoteTodos;
-      await saveHandler(nextTodos);
+      await saveRemoteTodos(prevTodosSnapshot, nextTodosSnapshot);
     },
-    [todos, dataMode, saveLocalTodos, saveRemoteTodos]
+    [dataMode, saveLocalTodos, saveRemoteTodos]
   );
 
   const refetch = useCallback(
