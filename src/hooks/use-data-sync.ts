@@ -219,6 +219,21 @@ export function useTodos(): UseTodosResult {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+
+      const todoIds = (data || []).map((todo: any) => todo.id);
+      const { data: linkData, error: linksError } = await supabase
+        .from('todo_note_links')
+        .select('todo_id,note_id')
+        .in('todo_id', todoIds);
+
+      if (linksError) throw linksError;
+
+      const linksByTodoId = new Map<string, string[]>();
+      (linkData || []).forEach((link: any) => {
+        const existingNoteIds = linksByTodoId.get(link.todo_id) || [];
+        linksByTodoId.set(link.todo_id, [...existingNoteIds, link.note_id]);
+      });
+
       setTodosState(
         (data || []).map((todo: any) => ({
           id: todo.id,
@@ -229,7 +244,7 @@ export function useTodos(): UseTodosResult {
           deletedAt: todo.deleted_at
             ? new Date(todo.deleted_at).getTime()
             : undefined,
-          linkedNoteIds: [],
+          linkedNoteIds: linksByTodoId.get(todo.id) || [],
           groupIds: todo.group_ids || [],
           tags: todo.tags || [],
           dueDate: todo.due_date
@@ -281,9 +296,41 @@ export function useTodos(): UseTodosResult {
     prevTodo.createdAt !== nextTodo.createdAt ||
     prevTodo.updatedAt !== nextTodo.updatedAt ||
     prevTodo.deletedAt !== nextTodo.deletedAt ||
+    !areStringArraysEqual(prevTodo.linkedNoteIds, nextTodo.linkedNoteIds) ||
     !areStringArraysEqual(prevTodo.groupIds, nextTodo.groupIds) ||
     !areStringArraysEqual(prevTodo.tags, nextTodo.tags) ||
     prevTodo.dueDate !== nextTodo.dueDate
+  );
+
+  const syncTodoNoteLinks = useCallback(
+    async (changedTodos: Todo[]): Promise<void> => {
+      if (changedTodos.length === 0 || !user) return;
+
+      const changedTodoIds = changedTodos.map(todo => todo.id);
+
+      const { error: deleteError } = await supabase
+        .from('todo_note_links')
+        .delete()
+        .in('todo_id', changedTodoIds);
+
+      if (deleteError) throw deleteError;
+
+      const linksToInsert = changedTodos.flatMap(todo =>
+        (todo.linkedNoteIds || []).map(noteId => ({
+          todo_id: todo.id,
+          note_id: noteId,
+        }))
+      );
+
+      if (linksToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('todo_note_links')
+          .insert(linksToInsert);
+
+        if (insertError) throw insertError;
+      }
+    },
+    [user]
   );
 
   const upsertTodos = useCallback(
@@ -347,13 +394,14 @@ export function useTodos(): UseTodosResult {
           .map(todo => todo.id);
 
         await upsertTodos(changedTodos);
+        await syncTodoNoteLinks(changedTodos);
         await deleteTodos(deletedTodoIds);
       } catch (error) {
         console.error('Failed to save remote todos:', error);
         toast.error('Failed to save todos to Supabase');
       }
     },
-    [user, upsertTodos, deleteTodos]
+    [user, upsertTodos, syncTodoNoteLinks, deleteTodos]
   );
 
   // Save todos
