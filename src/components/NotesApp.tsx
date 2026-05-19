@@ -231,7 +231,7 @@ export function NotesApp() {
   const resize = useCallback((e: MouseEvent) => {
     if (isResizing.current) {
       const newWidth = e.clientX;
-      if (newWidth >= 0 && newWidth <= 600) {
+      if (newWidth >= 260 && newWidth <= 600) {
         setSidebarWidth(newWidth);
       }
     } else if (isResizingAttachment.current) {
@@ -273,7 +273,7 @@ export function NotesApp() {
           <>
             <aside 
               className="border-r border-border bg-card/30 flex flex-col relative overflow-hidden"
-              style={{ width: `${sidebarWidth}px` }}
+              style={{ width: `${sidebarWidth}px`, minWidth: '260px' }}
             >
               <div className="p-4 shrink-0" style={{ minWidth: 0 }}>
                 <div className="relative" style={{ minWidth: 0 }}>
@@ -333,7 +333,7 @@ export function NotesApp() {
               className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors"
               onMouseDown={startResizing}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowLeft' && sidebarWidth > 200) setSidebarWidth(sidebarWidth - 20);
+                if (e.key === 'ArrowLeft' && sidebarWidth > 260) setSidebarWidth(sidebarWidth - 20);
                 if (e.key === 'ArrowRight' && sidebarWidth < 600) setSidebarWidth(sidebarWidth + 20);
               }}
               aria-label="Resize sidebar"
