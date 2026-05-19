@@ -40,8 +40,8 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-base truncate">
+          <div className="flex items-center gap-2 mb-1 min-w-0">
+            <h3 className="font-semibold text-base truncate flex-1 min-w-0">
               {highlightText(note.title || 'Untitled', searchQuery)}
             </h3>
             {note.attachments && note.attachments.length > 0 && (
