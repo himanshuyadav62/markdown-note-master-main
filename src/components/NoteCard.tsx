@@ -51,7 +51,7 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-all">
             {highlightText(getPreview(note.content), searchQuery)}
           </p>
           <p className="text-xs text-muted-foreground">

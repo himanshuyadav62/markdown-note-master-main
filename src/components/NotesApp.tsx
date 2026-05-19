@@ -63,11 +63,18 @@ export function NotesApp() {
   }, [setAllNotes]);
 
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {
+    setAllNotes(current =>
+      (current || []).map(currentNote =>
+        currentNote.id === note.id
+          ? { ...currentNote, updatedAt: Date.now() }
+          : currentNote
+      )
+    );
     setSelectedNoteId(note.id);
     setEditTitle(note.title);
     setEditContent(note.content);
     navigate(`/notes/${note.id}`);
-  }, [navigate]);
+  }, [navigate, setAllNotes]);
 
   const selectedNote = useMemo(
     () => allNotes?.find(note => note.id === selectedNoteId),
@@ -231,7 +238,7 @@ export function NotesApp() {
   const resize = useCallback((e: MouseEvent) => {
     if (isResizing.current) {
       const newWidth = e.clientX;
-      if (newWidth >= 0 && newWidth <= 600) {
+      if (newWidth >= 260 && newWidth <= 600) {
         setSidebarWidth(newWidth);
       }
     } else if (isResizingAttachment.current) {
@@ -273,7 +280,7 @@ export function NotesApp() {
           <>
             <aside 
               className="border-r border-border bg-card/30 flex flex-col relative overflow-hidden"
-              style={{ width: `${sidebarWidth}px` }}
+              style={{ width: `${sidebarWidth}px`, minWidth: '260px' }}
             >
               <div className="p-4 shrink-0" style={{ minWidth: 0 }}>
                 <div className="relative" style={{ minWidth: 0 }}>
@@ -292,7 +299,7 @@ export function NotesApp() {
               </div>
 
               <ScrollArea className="flex-1 h-0">
-                <div className="px-4 pb-4 space-y-2">
+                <div className="pl-4 pr-6 pb-4 space-y-2">
                   {sortedNotes.length === 0 ? (
                     <div className="text-center py-12 px-4">
                       <p className="text-muted-foreground text-sm">
@@ -333,7 +340,7 @@ export function NotesApp() {
               className="w-1 bg-border hover:bg-accent cursor-col-resize transition-colors"
               onMouseDown={startResizing}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowLeft' && sidebarWidth > 200) setSidebarWidth(sidebarWidth - 20);
+                if (e.key === 'ArrowLeft' && sidebarWidth > 260) setSidebarWidth(sidebarWidth - 20);
                 if (e.key === 'ArrowRight' && sidebarWidth < 600) setSidebarWidth(sidebarWidth + 20);
               }}
               aria-label="Resize sidebar"
