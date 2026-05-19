@@ -34,11 +34,11 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
   return (
     <Card
       onClick={onClick}
-      className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+      className={`relative p-4 pr-12 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
         isActive ? 'ring-2 ring-accent border-accent' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 min-w-0">
             <h3 className="font-semibold text-base truncate flex-1 min-w-0">
@@ -62,7 +62,7 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
           variant="ghost"
           size="icon"
           onClick={onDelete}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+          className="absolute top-3 right-3 h-8 w-8 text-muted-foreground hover:text-destructive"
           aria-label="Delete note"
           title="Delete note"
         >
