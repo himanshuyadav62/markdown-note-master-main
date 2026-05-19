@@ -1,7 +1,6 @@
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrashIcon, PaperclipIcon } from '@phosphor-icons/react';
+import { PaperclipIcon } from '@phosphor-icons/react';
 import { Note } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -9,11 +8,10 @@ interface NoteCardProps {
   note: Note;
   isActive: boolean;
   onClick: () => void;
-  onDelete: (e: React.MouseEvent) => void;
   searchQuery?: string;
 }
 
-export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Readonly<NoteCardProps>) {
+export function NoteCard({ note, isActive, onClick, searchQuery }: Readonly<NoteCardProps>) {
   const getPreview = (content: string) => {
     const div = document.createElement('div');
     div.innerHTML = content;
@@ -34,7 +32,7 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
   return (
     <Card
       onClick={onClick}
-      className={`relative p-4 pr-12 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+      className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
         isActive ? 'ring-2 ring-accent border-accent' : ''
       }`}
     >
@@ -58,16 +56,6 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
             {formatDistanceToNow(note.updatedAt, { addSuffix: true })}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onDelete}
-          className="absolute top-3 right-3 h-8 w-8 text-muted-foreground hover:text-destructive"
-          aria-label="Delete note"
-          title="Delete note"
-        >
-          <TrashIcon size={16} aria-hidden="true" />
-        </Button>
       </div>
     </Card>
   );
