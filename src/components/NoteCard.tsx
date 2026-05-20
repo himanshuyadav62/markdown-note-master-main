@@ -1,7 +1,6 @@
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrashIcon, PaperclipIcon } from '@phosphor-icons/react';
+import { PaperclipIcon } from '@phosphor-icons/react';
 import { Note } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -9,11 +8,10 @@ interface NoteCardProps {
   note: Note;
   isActive: boolean;
   onClick: () => void;
-  onDelete: (e: React.MouseEvent) => void;
   searchQuery?: string;
 }
 
-export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Readonly<NoteCardProps>) {
+export function NoteCard({ note, isActive, onClick, searchQuery }: Readonly<NoteCardProps>) {
   const getPreview = (content: string) => {
     const div = document.createElement('div');
     div.innerHTML = content;
@@ -38,10 +36,10 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
         isActive ? 'ring-2 ring-accent border-accent' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-base truncate">
+          <div className="flex items-center gap-2 mb-1 min-w-0">
+            <h3 className="font-semibold text-base truncate flex-1 min-w-0">
               {highlightText(note.title || 'Untitled', searchQuery)}
             </h3>
             {note.attachments && note.attachments.length > 0 && (
@@ -51,23 +49,13 @@ export function NoteCard({ note, isActive, onClick, onDelete, searchQuery }: Rea
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-all">
             {highlightText(getPreview(note.content), searchQuery)}
           </p>
           <p className="text-xs text-muted-foreground">
             {formatDistanceToNow(note.updatedAt, { addSuffix: true })}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onDelete}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-          aria-label="Delete note"
-          title="Delete note"
-        >
-          <TrashIcon size={16} aria-hidden="true" />
-        </Button>
       </div>
     </Card>
   );

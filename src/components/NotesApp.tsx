@@ -16,6 +16,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNotes } from '@/hooks/use-data-sync';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 
 export function NotesApp() {
   const { user } = useAuth();
@@ -63,11 +64,18 @@ export function NotesApp() {
   }, [setAllNotes]);
 
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {
+    setAllNotes(current =>
+      (current || []).map(currentNote =>
+        currentNote.id === note.id
+          ? { ...currentNote, updatedAt: Date.now() }
+          : currentNote
+      )
+    );
     setSelectedNoteId(note.id);
     setEditTitle(note.title);
     setEditContent(note.content);
     navigate(`/notes/${note.id}`);
-  }, [navigate]);
+  }, [navigate, setAllNotes]);
 
   const selectedNote = useMemo(
     () => allNotes?.find(note => note.id === selectedNoteId),
@@ -292,7 +300,7 @@ export function NotesApp() {
               </div>
 
               <ScrollArea className="flex-1 h-0">
-                <div className="px-4 pb-4 space-y-2">
+                <div className="pl-4 pr-6 pb-4 space-y-2">
                   {sortedNotes.length === 0 ? (
                     <div className="text-center py-12 px-4">
                       <p className="text-muted-foreground text-sm">
@@ -311,17 +319,23 @@ export function NotesApp() {
                     </div>
                   ) : (
                     sortedNotes.map(note => (
-                      <NoteCard
-                        key={note.id}
-                        note={note}
-                        isActive={note.id === selectedNoteId}
-                        onClick={() => handleSelectNote(note)}
-                        onDelete={(e) => {
-                          e.stopPropagation();
-                          deleteNote(note.id);
-                        }}
-                        searchQuery={searchQuery}
-                      />
+                      <ContextMenu key={note.id}>
+                        <ContextMenuTrigger asChild>
+                          <div>
+                            <NoteCard
+                              note={note}
+                              isActive={note.id === selectedNoteId}
+                              onClick={() => handleSelectNote(note)}
+                              searchQuery={searchQuery}
+                            />
+                          </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem variant="destructive" onClick={() => deleteNote(note.id)}>
+                            Delete
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     ))
                   )}
                 </div>
