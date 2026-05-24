@@ -191,14 +191,14 @@ export function NotesApp() {
       clearTimeout(contentDebounceTimer.current);
     }
     
-    // Set new timer to update after 2 seconds
+    // Set new timer to update after 1.5 seconds
     if (selectedNoteId) {
       contentDebounceTimer.current = setTimeout(() => {
         setSaveStatus('saving');
         updateNote(selectedNoteId, { content })
           .then(() => setSaveStatus('saved'))
           .catch(() => setSaveStatus('error'));
-      }, 2000);
+      }, 1500);
     }
   }, [selectedNoteId, updateNote]);
 
@@ -212,14 +212,14 @@ export function NotesApp() {
       clearTimeout(titleDebounceTimer.current);
     }
     
-    // Set new timer to update after 2 seconds
+    // Set new timer to update after 1.5 seconds
     if (selectedNoteId) {
       titleDebounceTimer.current = setTimeout(() => {
         setSaveStatus('saving');
         updateNote(selectedNoteId, { title })
           .then(() => setSaveStatus('saved'))
           .catch(() => setSaveStatus('error'));
-      }, 2000);
+      }, 1500);
     }
   }, [selectedNoteId, updateNote]);
 
