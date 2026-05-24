@@ -124,8 +124,6 @@ export function useNotes(): UseNotesResult {
           user_id: user.id,
           title: note.title,
           content: note.content,
-          created_at: new Date(note.createdAt).toISOString(),
-          updated_at: new Date(note.updatedAt).toISOString(),
           deleted_at: note.deletedAt
             ? new Date(note.deletedAt).toISOString()
             : null,
@@ -343,8 +341,6 @@ export function useTodos(): UseTodosResult {
           user_id: user.id,
           title: todo.title,
           completed: todo.completed,
-          created_at: new Date(todo.createdAt).toISOString(),
-          updated_at: new Date(todo.updatedAt).toISOString(),
           deleted_at: todo.deletedAt
             ? new Date(todo.deletedAt).toISOString()
             : null,
