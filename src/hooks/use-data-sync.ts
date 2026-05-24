@@ -13,6 +13,9 @@ interface UseNotesResult {
   refetch: () => Promise<void>;
 }
 
+const notesCacheByUserId = new Map<string, Note[]>();
+const notesLoadInFlightByUserId = new Map<string, Promise<Note[]>>();
+
 export function useNotes(): UseNotesResult {
   const { user } = useAuth();
   const [notes, setNotesState] = useState<Note[]>([]);
@@ -38,15 +41,28 @@ export function useNotes(): UseNotesResult {
   const loadRemoteNotes = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+      const cachedNotes = notesCacheByUserId.get(user.id);
+      if (cachedNotes) {
+        setNotesState(cachedNotes);
+        return;
+      }
 
-      if (error) throw error;
-      setNotesState(
-        (data || []).map((note: any) => ({
+      const inFlight = notesLoadInFlightByUserId.get(user.id);
+      if (inFlight) {
+        const loadedNotes = await inFlight;
+        setNotesState(loadedNotes);
+        return;
+      }
+
+      const request = (async () => {
+        const { data, error } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+        const loadedNotes = (data || []).map((note: any) => ({
           id: note.id,
           title: note.title,
           content: note.content,
@@ -54,12 +70,19 @@ export function useNotes(): UseNotesResult {
           updatedAt: new Date(note.updated_at).getTime(),
           deletedAt: note.deleted_at ? new Date(note.deleted_at).getTime() : undefined,
           attachments: [],
-        }))
-      );
+        }));
+        notesCacheByUserId.set(user.id, loadedNotes);
+        return loadedNotes;
+      })();
+
+      notesLoadInFlightByUserId.set(user.id, request);
+      const loadedNotes = await request;
+      setNotesState(loadedNotes);
     } catch (error) {
       console.error('Failed to load remote notes:', error);
       toast.error('Failed to load notes from Supabase');
     } finally {
+      notesLoadInFlightByUserId.delete(user.id);
       setIsLoading(false);
       setHasLoaded(true);
     }
@@ -124,8 +147,6 @@ export function useNotes(): UseNotesResult {
           user_id: user.id,
           title: note.title,
           content: note.content,
-          created_at: new Date(note.createdAt).toISOString(),
-          updated_at: new Date(note.updatedAt).toISOString(),
           deleted_at: note.deletedAt
             ? new Date(note.deletedAt).toISOString()
             : null,
@@ -160,16 +181,24 @@ export function useNotes(): UseNotesResult {
           : notesOrUpdater;
 
       setNotesState(nextNotes);
+      if (user) {
+        notesCacheByUserId.set(user.id, nextNotes);
+      }
 
       const saveHandler = dataMode === 'local' ? saveLocalNotes : saveRemoteNotes;
       await saveHandler(nextNotes);
     },
-    [notes, dataMode, saveLocalNotes, saveRemoteNotes]
+    [notes, dataMode, saveLocalNotes, saveRemoteNotes, user]
   );
 
   const refetch = useCallback(
-    () => dataMode === 'local' ? loadLocalNotes() : loadRemoteNotes(),
-    [dataMode, loadLocalNotes, loadRemoteNotes]
+    () => {
+      if (user) {
+        notesCacheByUserId.delete(user.id);
+      }
+      return dataMode === 'local' ? loadLocalNotes() : loadRemoteNotes();
+    },
+    [dataMode, loadLocalNotes, loadRemoteNotes, user]
   );
 
   return {
@@ -343,8 +372,6 @@ export function useTodos(): UseTodosResult {
           user_id: user.id,
           title: todo.title,
           completed: todo.completed,
-          created_at: new Date(todo.createdAt).toISOString(),
-          updated_at: new Date(todo.updatedAt).toISOString(),
           deleted_at: todo.deletedAt
             ? new Date(todo.deletedAt).toISOString()
             : null,

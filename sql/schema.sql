@@ -23,6 +23,23 @@ create table todos (
   tags text[] default array[]::text[]
 );
 
+-- Keep updated_at server-managed
+create or replace function set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger notes_set_updated_at
+before update on notes
+for each row execute function set_updated_at();
+
+create trigger todos_set_updated_at
+before update on todos
+for each row execute function set_updated_at();
+
 -- Create todo_groups table
 create table todo_groups (
   id uuid default uuid_generate_v4() primary key,

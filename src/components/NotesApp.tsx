@@ -20,7 +20,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 
 export function NotesApp() {
   const { user } = useAuth();
-  const { notes: notesData, setNotes, refetch: refetchNotes } = useNotes();
+  const { notes: notesData, setNotes } = useNotes();
   const navigate = useNavigate();
   const { noteId } = useParams<{ noteId?: string }>();
   const [notes, setNotesLocal] = useLocalStorage<Note[]>('notes', []);
@@ -35,6 +35,7 @@ export function NotesApp() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving'>('saved');
   const [isSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [attachmentHeight, setAttachmentHeight] = useState(240);
@@ -49,11 +50,6 @@ export function NotesApp() {
       setSelectedNoteId(noteId);
     }
   }, [noteId]);
-
-  // Refetch data when component mounts
-  useEffect(() => {
-    refetchNotes();
-  }, [refetchNotes]);
 
   const updateNote = useCallback((noteId: string, updates: Partial<Note>) => {
     setAllNotes(current =>
@@ -188,6 +184,7 @@ export function NotesApp() {
 
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
+    setSaveStatus('pending');
     
     // Clear existing timer
     if (contentDebounceTimer.current) {
@@ -197,7 +194,10 @@ export function NotesApp() {
     // Set new timer to update after 3 seconds
     if (selectedNoteId) {
       contentDebounceTimer.current = setTimeout(() => {
-        updateNote(selectedNoteId, { content });
+        setSaveStatus('saving');
+        Promise.resolve(updateNote(selectedNoteId, { content }))
+          .then(() => setSaveStatus('saved'))
+          .catch(() => setSaveStatus('saved'));
       }, 3000);
     }
   }, [selectedNoteId, updateNote]);
@@ -205,6 +205,7 @@ export function NotesApp() {
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
     setEditTitle(title);
+    setSaveStatus('pending');
     
     // Clear existing timer
     if (titleDebounceTimer.current) {
@@ -214,12 +215,16 @@ export function NotesApp() {
     // Set new timer to update after 3 seconds
     if (selectedNoteId) {
       titleDebounceTimer.current = setTimeout(() => {
-        updateNote(selectedNoteId, { title });
+        setSaveStatus('saving');
+        Promise.resolve(updateNote(selectedNoteId, { title }))
+          .then(() => setSaveStatus('saved'))
+          .catch(() => setSaveStatus('saved'));
       }, 3000);
     }
   }, [selectedNoteId, updateNote]);
 
   const handleSelectNote = (note: Note) => {
+    setSaveStatus('saved');
     handleSelectNoteWithNavigation(note);
   };
 
@@ -453,12 +458,17 @@ export function NotesApp() {
           {selectedNoteId ? (
             <>
               <div className="border-b border-border p-4 bg-card/30 shrink-0">
-                <Input
-                  value={editTitle}
-                  onChange={handleTitleChange}
-                  placeholder="Note title..."
-                  className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
+                <div className="flex items-center justify-between gap-3">
+                  <Input
+                    value={editTitle}
+                    onChange={handleTitleChange}
+                    placeholder="Note title..."
+                    className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  <Badge variant="secondary" className="whitespace-nowrap">
+                    {saveStatus === 'pending' ? 'Waiting to save…' : saveStatus === 'saving' ? 'Saving…' : 'Saved'}
+                  </Badge>
+                </div>
               </div>
 
               <div className="flex-1 h-0 flex flex-col border-x border-border">
