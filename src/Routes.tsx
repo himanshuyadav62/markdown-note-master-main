@@ -18,8 +18,7 @@ export function AppRoutes() {
     <Routes>
       {/* Shared layout with header + auth gating */}
       <Route element={<AppLayout />}>
-        <Route path="/notes" element={<NotesApp />} />
-        <Route path="/notes/:noteId" element={<NotesApp />} />
+        <Route path="/notes/:noteId?" element={<NotesApp />} />
         <Route path="/todos" element={<TodosRoute />} />
         <Route path="/workflows" element={<WorkflowsHome />} />
       </Route>

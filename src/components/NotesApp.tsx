@@ -20,7 +20,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 
 export function NotesApp() {
   const { user } = useAuth();
-  const { notes: notesData, setNotes, refetch: refetchNotes } = useNotes();
+  const { notes: notesData, setNotes } = useNotes();
   const navigate = useNavigate();
   const { noteId } = useParams<{ noteId?: string }>();
   const [notes, setNotesLocal] = useLocalStorage<Note[]>('notes', []);
@@ -35,6 +35,7 @@ export function NotesApp() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved');
   const [isSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [attachmentHeight, setAttachmentHeight] = useState(240);
@@ -50,17 +51,12 @@ export function NotesApp() {
     }
   }, [noteId]);
 
-  // Refetch data when component mounts
-  useEffect(() => {
-    refetchNotes();
-  }, [refetchNotes]);
-
-  const updateNote = useCallback((noteId: string, updates: Partial<Note>) => {
-    setAllNotes(current =>
+  const updateNote = useCallback(async (noteId: string, updates: Partial<Note>) => {
+    await Promise.resolve(setAllNotes(current =>
       (current || []).map(note =>
         note.id === noteId ? { ...note, ...updates, updatedAt: Date.now() } : note
       )
-    );
+    ));
   }, [setAllNotes]);
 
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {
@@ -188,38 +184,47 @@ export function NotesApp() {
 
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
+    setSaveStatus('pending');
     
     // Clear existing timer
     if (contentDebounceTimer.current) {
       clearTimeout(contentDebounceTimer.current);
     }
     
-    // Set new timer to update after 3 seconds
+    // Set new timer to update after 1.5 seconds
     if (selectedNoteId) {
       contentDebounceTimer.current = setTimeout(() => {
-        updateNote(selectedNoteId, { content });
-      }, 3000);
+        setSaveStatus('saving');
+        updateNote(selectedNoteId, { content })
+          .then(() => setSaveStatus('saved'))
+          .catch(() => setSaveStatus('error'));
+      }, 1500);
     }
   }, [selectedNoteId, updateNote]);
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
     setEditTitle(title);
+    setSaveStatus('pending');
     
     // Clear existing timer
     if (titleDebounceTimer.current) {
       clearTimeout(titleDebounceTimer.current);
     }
     
-    // Set new timer to update after 3 seconds
+    // Set new timer to update after 1.5 seconds
     if (selectedNoteId) {
       titleDebounceTimer.current = setTimeout(() => {
-        updateNote(selectedNoteId, { title });
-      }, 3000);
+        setSaveStatus('saving');
+        updateNote(selectedNoteId, { title })
+          .then(() => setSaveStatus('saved'))
+          .catch(() => setSaveStatus('error'));
+      }, 1500);
     }
   }, [selectedNoteId, updateNote]);
 
   const handleSelectNote = (note: Note) => {
+    setSaveStatus('saved');
     handleSelectNoteWithNavigation(note);
   };
 
@@ -325,6 +330,7 @@ export function NotesApp() {
                             <NoteCard
                               note={note}
                               isActive={note.id === selectedNoteId}
+                              isPendingSave={note.id === selectedNoteId && (saveStatus === 'pending' || saveStatus === 'saving')}
                               onClick={() => handleSelectNote(note)}
                               searchQuery={searchQuery}
                             />
@@ -453,12 +459,17 @@ export function NotesApp() {
           {selectedNoteId ? (
             <>
               <div className="border-b border-border p-4 bg-card/30 shrink-0">
-                <Input
-                  value={editTitle}
-                  onChange={handleTitleChange}
-                  placeholder="Note title..."
-                  className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
+                  <div className="flex items-center justify-between gap-3">
+                    <Input
+                      value={editTitle}
+                      onChange={handleTitleChange}
+                      placeholder="Note title..."
+                      className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                    <Badge variant={saveStatus === 'error' ? 'destructive' : 'secondary'} className="whitespace-nowrap">
+                      {saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Save failed' : 'Saving…'}
+                    </Badge>
+                </div>
               </div>
 
               <div className="flex-1 h-0 flex flex-col border-x border-border">
