@@ -110,6 +110,7 @@ export function useNotes(): UseNotesResult {
       } catch (error) {
         console.error('Failed to save remote notes:', error);
         toast.error('Failed to save notes to Supabase');
+        throw error;
       }
     },
     [user, notes]

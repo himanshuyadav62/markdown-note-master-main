@@ -35,7 +35,7 @@ export function NotesApp() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved');
   const [isSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [attachmentHeight, setAttachmentHeight] = useState(240);
@@ -51,12 +51,12 @@ export function NotesApp() {
     }
   }, [noteId]);
 
-  const updateNote = useCallback((noteId: string, updates: Partial<Note>) => {
-    setAllNotes(current =>
+  const updateNote = useCallback(async (noteId: string, updates: Partial<Note>) => {
+    await Promise.resolve(setAllNotes(current =>
       (current || []).map(note =>
         note.id === noteId ? { ...note, ...updates, updatedAt: Date.now() } : note
       )
-    );
+    ));
   }, [setAllNotes]);
 
   const handleSelectNoteWithNavigation = useCallback((note: Note) => {
@@ -191,14 +191,14 @@ export function NotesApp() {
       clearTimeout(contentDebounceTimer.current);
     }
     
-    // Set new timer to update after 3 seconds
+    // Set new timer to update after 2 seconds
     if (selectedNoteId) {
       contentDebounceTimer.current = setTimeout(() => {
         setSaveStatus('saving');
-        Promise.resolve(updateNote(selectedNoteId, { content }))
+        updateNote(selectedNoteId, { content })
           .then(() => setSaveStatus('saved'))
-          .catch(() => setSaveStatus('saved'));
-      }, 3000);
+          .catch(() => setSaveStatus('error'));
+      }, 2000);
     }
   }, [selectedNoteId, updateNote]);
 
@@ -212,14 +212,14 @@ export function NotesApp() {
       clearTimeout(titleDebounceTimer.current);
     }
     
-    // Set new timer to update after 3 seconds
+    // Set new timer to update after 2 seconds
     if (selectedNoteId) {
       titleDebounceTimer.current = setTimeout(() => {
         setSaveStatus('saving');
-        Promise.resolve(updateNote(selectedNoteId, { title }))
+        updateNote(selectedNoteId, { title })
           .then(() => setSaveStatus('saved'))
-          .catch(() => setSaveStatus('saved'));
-      }, 3000);
+          .catch(() => setSaveStatus('error'));
+      }, 2000);
     }
   }, [selectedNoteId, updateNote]);
 
@@ -466,8 +466,8 @@ export function NotesApp() {
                       placeholder="Note title..."
                       className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
-                    <Badge variant="secondary" className="whitespace-nowrap">
-                      {saveStatus === 'saved' ? 'Saved' : 'Saving…'}
+                    <Badge variant={saveStatus === 'error' ? 'destructive' : 'secondary'} className="whitespace-nowrap">
+                      {saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Save failed' : 'Saving…'}
                     </Badge>
                 </div>
               </div>
