@@ -330,6 +330,7 @@ export function NotesApp() {
                             <NoteCard
                               note={note}
                               isActive={note.id === selectedNoteId}
+                              isPendingSave={note.id === selectedNoteId && (saveStatus === 'pending' || saveStatus === 'saving')}
                               onClick={() => handleSelectNote(note)}
                               searchQuery={searchQuery}
                             />
@@ -458,16 +459,16 @@ export function NotesApp() {
           {selectedNoteId ? (
             <>
               <div className="border-b border-border p-4 bg-card/30 shrink-0">
-                <div className="flex items-center justify-between gap-3">
-                  <Input
-                    value={editTitle}
-                    onChange={handleTitleChange}
-                    placeholder="Note title..."
-                    className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                  <Badge variant="secondary" className="whitespace-nowrap">
-                    {saveStatus === 'pending' ? 'Waiting to save…' : saveStatus === 'saving' ? 'Saving…' : 'Saved'}
-                  </Badge>
+                  <div className="flex items-center justify-between gap-3">
+                    <Input
+                      value={editTitle}
+                      onChange={handleTitleChange}
+                      placeholder="Note title..."
+                      className="text-xl font-semibold border-0 bg-transparent px-2 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {saveStatus === 'saved' ? 'Saved' : 'Saving…'}
+                    </Badge>
                 </div>
               </div>
 

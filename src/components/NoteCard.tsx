@@ -9,9 +9,10 @@ interface NoteCardProps {
   isActive: boolean;
   onClick: () => void;
   searchQuery?: string;
+  isPendingSave?: boolean;
 }
 
-export function NoteCard({ note, isActive, onClick, searchQuery }: Readonly<NoteCardProps>) {
+export function NoteCard({ note, isActive, onClick, searchQuery, isPendingSave = false }: Readonly<NoteCardProps>) {
   const getPreview = (content: string) => {
     const div = document.createElement('div');
     div.innerHTML = content;
@@ -34,7 +35,7 @@ export function NoteCard({ note, isActive, onClick, searchQuery }: Readonly<Note
       onClick={onClick}
       className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
         isActive ? 'ring-2 ring-accent border-accent' : ''
-      }`}
+      } ${isPendingSave ? 'border-amber-400/70 bg-amber-500/10' : ''}`}
     >
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
